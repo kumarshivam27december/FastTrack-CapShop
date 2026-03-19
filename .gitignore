@@ -1,0 +1,71 @@
+# =========================
+# Visual Studio
+# =========================
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# =========================
+# Build results
+# =========================
+bin/
+obj/
+out/
+dist/
+
+# =========================
+# .NET Core
+# =========================
+*.runtimeconfig.json
+*.deps.json
+*.dll
+*.exe
+
+# =========================
+# Logs
+# =========================
+logs/
+*.log
+
+# =========================
+# OS files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Rider / VS Code
+# =========================
+.idea/
+.vscode/
+
+# =========================
+# NuGet
+# =========================
+*.nupkg
+packages/
+
+# =========================
+# EF Core
+# =========================
+Migrations/*
+
+# =========================
+# Environment files
+# =========================
+.env
+appsettings.Development.json
+
+# =========================
+# Node (if Angular frontend later)
+# =========================
+node_modules/
+npm-debug.log
+
+# =========================
+# Temporary files
+# =========================
+*.tmp
+*.cache
