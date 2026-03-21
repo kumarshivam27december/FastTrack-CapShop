@@ -1,0 +1,25 @@
+<Solution>
+  <Folder Name="/Gateway/">
+    <Project Path="Gateway/CapShop.Gateway/CapShop.Gateway.csproj" />
+  </Folder>
+  <Folder Name="/Services/" />
+  <Folder Name="/Services/AdminService/">
+    <Project Path="Services/AdminService/CapShop.AdminService/CapShop.AdminService.csproj" />
+  </Folder>
+  <Folder Name="/Services/AuthService/">
+    <Project Path="Services/AuthService/CapShop.AuthService/CapShop.AuthService.csproj" />
+  </Folder>
+  <Folder Name="/Services/CatalogService/">
+    <Project Path="Services/CatalogService/CapShop.CatalogService/CapShop.CatalogService.csproj" />
+  </Folder>
+  <Folder Name="/Services/OrderService/">
+    <Project Path="Services/OrderService/CapShop.OrderService/CapShop.OrderService.csproj" />
+  </Folder>
+  <Folder Name="/Shared/">
+    <Project Path="Shared/CapShop.Shared/CapShop.Shared.csproj" />
+  </Folder>
+  <Project Path="../tests/CapShop.AdminService.Tests/CapShop.AdminService.Tests.csproj" />
+  <Project Path="../tests/CapShop.AuthService.Tests/CapShop.AuthService.Tests.csproj" />
+  <Project Path="../tests/CapShop.CatalogService.Tests/CapShop.CatalogService.Tests.csproj" />
+  <Project Path="../tests/CapShop.OrderService.Tests/CapShop.OrderService.Tests.csproj" />
+</Solution>
