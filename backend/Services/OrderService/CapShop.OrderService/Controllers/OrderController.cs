@@ -1,19 +1,13 @@
 ﻿using CapShop.OrderService.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
-using CapShop.OrderService.DTOs.Address;
 using CapShop.OrderService.DTOs.Cart;
 using CapShop.OrderService.DTOs.Checkout;
 using CapShop.OrderService.DTOs.Order;
 using CapShop.OrderService.DTOs.Payment;
 using Microsoft.AspNetCore.Authorization;
-using System.Security.Claims;
-
 
 namespace CapShop.OrderService.Controllers
 {
-
-  
-
     [ApiController]
     [Route("orders")]
     [Authorize]
@@ -26,67 +20,110 @@ namespace CapShop.OrderService.Controllers
             _orderService = orderService;
         }
 
-        private int GetUserId()
+        private int GetUserIdStrict()
         {
             var userIdClaim = User.FindFirst("userId")?.Value;
-            return int.TryParse(userIdClaim, out var userId) ? userId : 0;
+            if (!int.TryParse(userIdClaim, out var userId) || userId <= 0)
+            {
+                throw new UnauthorizedAccessException("Invalid token userId claim.");
+            }
+
+            return userId;
         }
 
         [HttpGet("health")]
         [AllowAnonymous]
         public IActionResult Health() => Ok(new { service = "OrderService", status = "Healthy" });
 
-        //cart endpoint
-
         [HttpGet("cart")]
         public async Task<IActionResult> GetCart()
         {
-            var userId = GetUserId();
-            var cart = await _orderService.GetOrCreateCartAsync(userId);
-            return Ok(cart);
+            try
+            {
+                var userId = GetUserIdStrict();
+                var cart = await _orderService.GetOrCreateCartAsync(userId);
+                return Ok(cart);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { error = ex.Message });
+            }
         }
 
         [HttpPost("cart/items")]
         public async Task<IActionResult> AddToCart([FromBody] AddToCartRequestDto request)
         {
-            var userId = GetUserId();
-            if (string.IsNullOrWhiteSpace(request.ProductId.ToString()) || request.Quantity <= 0)
-                return BadRequest("Invalid product or quantity");
+            try
+            {
+                var userId = GetUserIdStrict();
+                if (request.ProductId <= 0 || request.Quantity <= 0)
+                {
+                    return BadRequest("Invalid product or quantity");
+                }
 
-            var cart = await _orderService.AddToCartAsync(userId, request);
-            return Ok(cart);
+                var cart = await _orderService.AddToCartAsync(userId, request);
+                return Ok(cart);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
         }
 
         [HttpPut("cart/items/{id}")]
         public async Task<IActionResult> UpdateCartItem(int id, [FromBody] UpdateCartItemRequestDto request)
         {
-            var userId = GetUserId();
-            if (request.Quantity < 0) return BadRequest("Quantity cannot be negative");
+            try
+            {
+                var userId = GetUserIdStrict();
+                if (request.Quantity < 0) return BadRequest("Quantity cannot be negative");
 
-            var cart = await _orderService.UpdateCartItemAsync(userId, id, request);
-            return Ok(cart);
+                var cart = await _orderService.UpdateCartItemAsync(userId, id, request);
+                return Ok(cart);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
         }
 
         [HttpDelete("cart/items/{id}")]
         public async Task<IActionResult> RemoveFromCart(int id)
         {
-            var userId = GetUserId();
-            var result = await _orderService.RemoveFromCartAsync(userId, id);
-            if (!result) return NotFound("Item not found");
+            try
+            {
+                var userId = GetUserIdStrict();
+                var result = await _orderService.RemoveFromCartAsync(userId, id);
+                if (!result) return NotFound("Item not found");
 
-            return Ok(new { message = "Item removed from cart" });
+                return Ok(new { message = "Item removed from cart" });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { error = ex.Message });
+            }
         }
-
-        // ========== CHECKOUT ENDPOINTS ==========
 
         [HttpPost("checkout/start")]
         public async Task<IActionResult> StartCheckout([FromBody] CheckoutStartRequestDto request)
         {
-            var userId = GetUserId();
             try
             {
+                var userId = GetUserIdStrict();
                 var checkout = await _orderService.StartCheckoutAsync(userId, request);
                 return Ok(checkout);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { error = ex.Message });
             }
             catch (InvalidOperationException ex)
             {
@@ -99,8 +136,13 @@ namespace CapShop.OrderService.Controllers
         {
             try
             {
-                var payment = await _orderService.SimulatePaymentAsync(request);
+                var userId = GetUserIdStrict();
+                var payment = await _orderService.SimulatePaymentAsync(userId, request);
                 return Ok(payment);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { error = ex.Message });
             }
             catch (InvalidOperationException ex)
             {
@@ -111,11 +153,15 @@ namespace CapShop.OrderService.Controllers
         [HttpPost("place")]
         public async Task<IActionResult> PlaceOrder([FromBody] PlaceOrderRequestDto request)
         {
-            var userId = GetUserId();
             try
             {
+                var userId = GetUserIdStrict();
                 var order = await _orderService.PlaceOrderAsync(userId, request.OrderId);
                 return Ok(order);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { error = ex.Message });
             }
             catch (InvalidOperationException ex)
             {
@@ -123,27 +169,58 @@ namespace CapShop.OrderService.Controllers
             }
         }
 
-        // ========== ORDER ENDPOINTS ==========
+        [HttpPut("{id}/cancel")]
+        public async Task<IActionResult> CancelOrder(int id)
+        {
+            try
+            {
+                var userId = GetUserIdStrict();
+                var result = await _orderService.CancelOrderAsync(id, userId);
+                if (!result) return NotFound("Order not found");
+
+                return Ok(new { message = "Order cancelled successfully" });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
 
         [HttpGet("my")]
         public async Task<IActionResult> GetMyOrders()
         {
-            var userId = GetUserId();
-            var orders = await _orderService.GetCustomerOrdersAsync(userId);
-            return Ok(orders);
+            try
+            {
+                var userId = GetUserIdStrict();
+                var orders = await _orderService.GetCustomerOrdersAsync(userId);
+                return Ok(orders);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { error = ex.Message });
+            }
         }
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetOrderById(int id)
         {
-            var userId = GetUserId();
-            var order = await _orderService.GetOrderByIdAsync(id, userId);
-            if (order is null) return NotFound();
+            try
+            {
+                var userId = GetUserIdStrict();
+                var order = await _orderService.GetOrderByIdAsync(id, userId);
+                if (order is null) return NotFound();
 
-            return Ok(order);
+                return Ok(order);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { error = ex.Message });
+            }
         }
-
-        // ========== ADMIN ENDPOINTS ==========
 
         [HttpGet("admin/all")]
         [Authorize(Roles = "Admin")]
@@ -157,11 +234,18 @@ namespace CapShop.OrderService.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateOrderStatus(int id, [FromBody] UpdateOrderStatusRequestDto request)
         {
-            var adminUserId = GetUserId();
-            var result = await _orderService.UpdateOrderStatusAsync(id, request.NewStatus, request.Notes, adminUserId);
-            if (!result) return NotFound();
+            try
+            {
+                var adminUserId = GetUserIdStrict();
+                var result = await _orderService.UpdateOrderStatusAsync(id, request.NewStatus, request.Notes, adminUserId);
+                if (!result) return BadRequest("Invalid status transition or order not found");
 
-            return Ok(new { message = "Order status updated" });
+                return Ok(new { message = "Order status updated" });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { error = ex.Message });
+            }
         }
     }
 

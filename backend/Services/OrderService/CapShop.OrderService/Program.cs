@@ -34,7 +34,7 @@ builder.Services.AddSwaggerGen(options =>
                     Id = "Bearer"
                 }
             },
-            new string[] {}
+            Array.Empty<string>()
         }
     });
 });
@@ -42,10 +42,14 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddDbContext<OrderDbContext>(opts =>
     opts.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+builder.Services.AddHttpClient();
 builder.Services.AddScoped<IOrderService, OrderService>();
 
-var secret = builder.Configuration.GetSection("JwtSettings")["SecretKey"]
-    ?? "CapShop-Auth-Day1-Very-Long-Secret-Key-Change-In-Prod";
+var secret = builder.Configuration.GetSection("JwtSettings")["SecretKey"];
+if (string.IsNullOrWhiteSpace(secret))
+{
+    throw new InvalidOperationException("JwtSettings:SecretKey is missing in configuration.");
+}
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
