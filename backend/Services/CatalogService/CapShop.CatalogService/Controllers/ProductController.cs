@@ -1,19 +1,19 @@
-﻿using CapShop.CatalogService.DTOs.Catalog;
-using CapShop.CatalogService.Services.Interfaces;
+﻿using CapShop.CatalogService.Application.Interfaces;
+using CapShop.CatalogService.DTOs.Catalog;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CapShop.CatalogService.Controllers
 {
-
     [ApiController]
     [Route("catalog")]
     public class ProductController : ControllerBase
     {
-        private readonly IProductService _productService;
-        public ProductController(IProductService productService)
+        private readonly IProductAppService _productAppService;
+
+        public ProductController(IProductAppService productAppService)
         {
-            _productService = productService;
+            _productAppService = productAppService;
         }
 
         [HttpGet("health")]
@@ -22,25 +22,26 @@ namespace CapShop.CatalogService.Controllers
 
         [HttpGet("featured")]
         [AllowAnonymous]
-        public async Task<IActionResult> GetFeatured()
+        public async Task<IActionResult> GetFeatured(CancellationToken ct)
         {
-            var featured = await _productService.GetFeaturedProductsAsync();
+            var featured = await _productAppService.GetFeaturedProductsAsync(ct);
             return Ok(featured);
         }
 
         [HttpGet("products")]
         [AllowAnonymous]
         public async Task<IActionResult> SearchProducts(
-        [FromQuery] string? query,
-        [FromQuery] int? categoryId,
-        [FromQuery] decimal? minPrice,
-        [FromQuery] decimal? maxPrice,
-        [FromQuery] string? sortBy,
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 10)
+            [FromQuery] string? query,
+            [FromQuery] int? categoryId,
+            [FromQuery] decimal? minPrice,
+            [FromQuery] decimal? maxPrice,
+            [FromQuery] string? sortBy,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10,
+            CancellationToken ct = default)
         {
-            var (products, totalCount) = await _productService.SearchProductAsync(
-                query, categoryId, minPrice, maxPrice, sortBy, page, pageSize);
+            var (products, totalCount) = await _productAppService.SearchProductsAsync(
+                query, categoryId, minPrice, maxPrice, sortBy, page, pageSize, ct);
 
             return Ok(new
             {
@@ -52,42 +53,47 @@ namespace CapShop.CatalogService.Controllers
             });
         }
 
-
         [HttpGet("products/{id}")]
         [AllowAnonymous]
-        public async Task<IActionResult> GetProductById(int id)
+        public async Task<IActionResult> GetProductById(int id, CancellationToken ct)
         {
-            var product = await _productService.GetProductByIdAsync(id);
+            var product = await _productAppService.GetProductByIdAsync(id, ct);
             if (product is null) return NotFound();
             return Ok(product);
         }
 
         [HttpPost("admin/products")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> CreateProduct([FromBody] CreateProductDto dto)
+        public async Task<IActionResult> CreateProduct([FromBody] CreateProductDto dto, CancellationToken ct)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
-            var product = await _productService.CreateProductAsync(dto);
+            var product = await _productAppService.CreateProductAsync(dto, ct);
             return CreatedAtAction(nameof(GetProductById), new { id = product.Id }, product);
         }
 
+        [HttpPut("admin/products/{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> UpdateProduct(int id, [FromBody] UpdateProductDto dto, CancellationToken ct)
+        {
+            var ok = await _productAppService.UpdateProductAsync(id, dto, ct);
+            if (!ok) return NotFound();
+            return Ok(new { message = "Product updated successfully" });
+        }
 
         [HttpPut("admin/products/{id}/stock")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> UpdateStock(int id, [FromBody] UpdateStockDto dto)
+        public async Task<IActionResult> UpdateStock(int id, [FromBody] UpdateStockDto dto, CancellationToken ct)
         {
-            var result = await _productService.UpdateStockAsync(id, dto.Stock);
-            if (!result) return NotFound();
+            var ok = await _productAppService.UpdateStockAsync(id, dto.Stock, ct);
+            if (!ok) return NotFound();
             return Ok(new { message = "Stock updated successfully" });
         }
 
-
         [HttpDelete("admin/products/{id}")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> DeleteProduct(int id)
+        public async Task<IActionResult> DeleteProduct(int id, CancellationToken ct)
         {
-            var result = await _productService.DeleteProductAsync(id);
-            if (!result) return NotFound();
+            var ok = await _productAppService.DeleteProductAsync(id, ct);
+            if (!ok) return NotFound();
             return Ok(new { message = "Product deleted successfully" });
         }
     }

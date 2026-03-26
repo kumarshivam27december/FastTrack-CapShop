@@ -1,12 +1,12 @@
-﻿using CapShop.OrderService.DTOs.Cart;
-using CapShop.OrderService.DTOs.Address;
+﻿using CapShop.OrderService.DTOs.Address;
+using CapShop.OrderService.DTOs.Cart;
 using CapShop.OrderService.DTOs.Checkout;
-using CapShop.OrderService.DTOs.Payment;
 using CapShop.OrderService.DTOs.Order;
+using CapShop.OrderService.DTOs.Payment;
 
-namespace CapShop.OrderService.Services.Interfaces
+namespace CapShop.OrderService.Infrastructure.Repositories
 {
-    public interface IOrderService
+    public interface IOrderRepository
     {
         Task<CartResponseDto> GetOrCreateCartAsync(int userId);
         Task<CartResponseDto> AddToCartAsync(int userId, AddToCartRequestDto request);

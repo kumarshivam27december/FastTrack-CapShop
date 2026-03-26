@@ -1,4 +1,4 @@
-﻿using CapShop.OrderService.Services.Interfaces;
+﻿using CapShop.OrderService.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using CapShop.OrderService.DTOs.Cart;
 using CapShop.OrderService.DTOs.Checkout;
@@ -13,9 +13,9 @@ namespace CapShop.OrderService.Controllers
     [Authorize]
     public class OrderController : ControllerBase
     {
-        private readonly IOrderService _orderService;
+        private readonly IOrderAppService _orderService;
 
-        public OrderController(IOrderService orderService)
+        public OrderController(IOrderAppService orderService)
         {
             _orderService = orderService;
         }
@@ -38,188 +38,94 @@ namespace CapShop.OrderService.Controllers
         [HttpGet("cart")]
         public async Task<IActionResult> GetCart()
         {
-            try
-            {
-                var userId = GetUserIdStrict();
-                var cart = await _orderService.GetOrCreateCartAsync(userId);
-                return Ok(cart);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return Unauthorized(new { error = ex.Message });
-            }
+            var userId = GetUserIdStrict();
+            var cart = await _orderService.GetOrCreateCartAsync(userId);
+            return Ok(cart);
         }
 
         [HttpPost("cart/items")]
         public async Task<IActionResult> AddToCart([FromBody] AddToCartRequestDto request)
         {
-            try
+            var userId = GetUserIdStrict();
+            if (request.ProductId <= 0 || request.Quantity <= 0)
             {
-                var userId = GetUserIdStrict();
-                if (request.ProductId <= 0 || request.Quantity <= 0)
-                {
-                    return BadRequest("Invalid product or quantity");
-                }
+                return BadRequest("Invalid product or quantity");
+            }
 
-                var cart = await _orderService.AddToCartAsync(userId, request);
-                return Ok(cart);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return Unauthorized(new { error = ex.Message });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(new { error = ex.Message });
-            }
+            var cart = await _orderService.AddToCartAsync(userId, request);
+            return Ok(cart);
         }
 
         [HttpPut("cart/items/{id}")]
         public async Task<IActionResult> UpdateCartItem(int id, [FromBody] UpdateCartItemRequestDto request)
         {
-            try
-            {
-                var userId = GetUserIdStrict();
-                if (request.Quantity < 0) return BadRequest("Quantity cannot be negative");
+            var userId = GetUserIdStrict();
+            if (request.Quantity < 0) return BadRequest("Quantity cannot be negative");
 
-                var cart = await _orderService.UpdateCartItemAsync(userId, id, request);
-                return Ok(cart);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return Unauthorized(new { error = ex.Message });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(new { error = ex.Message });
-            }
+            var cart = await _orderService.UpdateCartItemAsync(userId, id, request);
+            return Ok(cart);
         }
 
         [HttpDelete("cart/items/{id}")]
         public async Task<IActionResult> RemoveFromCart(int id)
         {
-            try
-            {
-                var userId = GetUserIdStrict();
-                var result = await _orderService.RemoveFromCartAsync(userId, id);
-                if (!result) return NotFound("Item not found");
+            var userId = GetUserIdStrict();
+            var result = await _orderService.RemoveFromCartAsync(userId, id);
+            if (!result) return NotFound("Item not found");
 
-                return Ok(new { message = "Item removed from cart" });
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return Unauthorized(new { error = ex.Message });
-            }
+            return Ok(new { message = "Item removed from cart" });
         }
 
         [HttpPost("checkout/start")]
         public async Task<IActionResult> StartCheckout([FromBody] CheckoutStartRequestDto request)
         {
-            try
-            {
-                var userId = GetUserIdStrict();
-                var checkout = await _orderService.StartCheckoutAsync(userId, request);
-                return Ok(checkout);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return Unauthorized(new { error = ex.Message });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(new { error = ex.Message });
-            }
+            var userId = GetUserIdStrict();
+            var checkout = await _orderService.StartCheckoutAsync(userId, request);
+            return Ok(checkout);
         }
 
         [HttpPost("payment/simulate")]
         public async Task<IActionResult> SimulatePayment([FromBody] PaymentSimulateRequestDto request)
         {
-            try
-            {
-                var userId = GetUserIdStrict();
-                var payment = await _orderService.SimulatePaymentAsync(userId, request);
-                return Ok(payment);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return Unauthorized(new { error = ex.Message });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(new { error = ex.Message });
-            }
+            var userId = GetUserIdStrict();
+            var payment = await _orderService.SimulatePaymentAsync(userId, request);
+            return Ok(payment);
         }
 
         [HttpPost("place")]
         public async Task<IActionResult> PlaceOrder([FromBody] PlaceOrderRequestDto request)
         {
-            try
-            {
-                var userId = GetUserIdStrict();
-                var order = await _orderService.PlaceOrderAsync(userId, request.OrderId);
-                return Ok(order);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return Unauthorized(new { error = ex.Message });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(new { error = ex.Message });
-            }
+            var userId = GetUserIdStrict();
+            var order = await _orderService.PlaceOrderAsync(userId, request.OrderId);
+            return Ok(order);
         }
 
         [HttpPut("{id}/cancel")]
         public async Task<IActionResult> CancelOrder(int id)
         {
-            try
-            {
-                var userId = GetUserIdStrict();
-                var result = await _orderService.CancelOrderAsync(id, userId);
-                if (!result) return NotFound("Order not found");
+            var userId = GetUserIdStrict();
+            var result = await _orderService.CancelOrderAsync(id, userId);
+            if (!result) return NotFound("Order not found");
 
-                return Ok(new { message = "Order cancelled successfully" });
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return Unauthorized(new { error = ex.Message });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(new { error = ex.Message });
-            }
+            return Ok(new { message = "Order cancelled successfully" });
         }
 
         [HttpGet("my")]
         public async Task<IActionResult> GetMyOrders()
         {
-            try
-            {
-                var userId = GetUserIdStrict();
-                var orders = await _orderService.GetCustomerOrdersAsync(userId);
-                return Ok(orders);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return Unauthorized(new { error = ex.Message });
-            }
+            var userId = GetUserIdStrict();
+            var orders = await _orderService.GetCustomerOrdersAsync(userId);
+            return Ok(orders);
         }
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetOrderById(int id)
         {
-            try
-            {
-                var userId = GetUserIdStrict();
-                var order = await _orderService.GetOrderByIdAsync(id, userId);
-                if (order is null) return NotFound();
+            var userId = GetUserIdStrict();
+            var order = await _orderService.GetOrderByIdAsync(id, userId);
+            if (order is null) return NotFound();
 
-                return Ok(order);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return Unauthorized(new { error = ex.Message });
-            }
+            return Ok(order);
         }
 
         [HttpGet("admin/all")]
@@ -234,18 +140,11 @@ namespace CapShop.OrderService.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateOrderStatus(int id, [FromBody] UpdateOrderStatusRequestDto request)
         {
-            try
-            {
-                var adminUserId = GetUserIdStrict();
-                var result = await _orderService.UpdateOrderStatusAsync(id, request.NewStatus, request.Notes, adminUserId);
-                if (!result) return BadRequest("Invalid status transition or order not found");
+            var adminUserId = GetUserIdStrict();
+            var result = await _orderService.UpdateOrderStatusAsync(id, request.NewStatus, request.Notes, adminUserId);
+            if (!result) return BadRequest("Invalid status transition or order not found");
 
-                return Ok(new { message = "Order status updated" });
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return Unauthorized(new { error = ex.Message });
-            }
+            return Ok(new { message = "Order status updated" });
         }
     }
 

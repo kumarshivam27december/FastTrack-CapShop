@@ -1,11 +1,13 @@
+using System.Text;
+using CapShop.CatalogService.Application.Interfaces;
+using CapShop.CatalogService.Application.Services;
 using CapShop.CatalogService.Data;
-using CapShop.CatalogService.Services;
-using CapShop.CatalogService.Services.Interfaces;
+using CapShop.CatalogService.Infrastructure.Repositories;
+using CapShop.CatalogService.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -34,7 +36,7 @@ builder.Services.AddSwaggerGen(options =>
                     Id = "Bearer"
                 }
             },
-            new string[] {}
+            Array.Empty<string>()
         }
     });
 });
@@ -42,11 +44,14 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddDbContext<CatalogDbContext>(opts =>
     opts.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<ICatalogRepository, CatalogRepository>();
+builder.Services.AddScoped<IProductAppService, ProductAppService>();
 
-var jwtSettings = builder.Configuration.GetSection("AuthSettings");
-var secret = builder.Configuration.GetSection("JwtSettings")["SecretKey"]
-    ?? "CapShop-Auth-Day1-Very-Long-Secret-Key-Change-In-Prod";
+var secret = builder.Configuration["JwtSettings:SecretKey"];
+if (string.IsNullOrWhiteSpace(secret))
+{
+    throw new InvalidOperationException("JwtSettings:SecretKey is missing in configuration.");
+}
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -57,8 +62,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateAudience = true,
             ValidateIssuerSigningKey = true,
             ValidateLifetime = true,
-            ValidIssuer = "CapShop.AuthService",
-            ValidAudience = "CapShop.Client",
+            ValidIssuer = builder.Configuration["JwtSettings:Issuer"] ?? "CapShop.AuthService",
+            ValidAudience = builder.Configuration["JwtSettings:Audience"] ?? "CapShop.Client",
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
             ClockSkew = TimeSpan.FromMinutes(1)
         };
@@ -74,6 +79,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseMiddleware<GlobalExceptionMiddleware>();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();

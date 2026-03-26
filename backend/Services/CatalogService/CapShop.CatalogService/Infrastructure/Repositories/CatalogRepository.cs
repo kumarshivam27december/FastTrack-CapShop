@@ -1,20 +1,22 @@
 ﻿using CapShop.CatalogService.Data;
 using CapShop.CatalogService.DTOs.Catalog;
-using CapShop.CatalogService.Services.Interfaces;
 using CapShop.CatalogService.Models;
 using Microsoft.EntityFrameworkCore;
-namespace CapShop.CatalogService.Services
+
+namespace CapShop.CatalogService.Infrastructure.Repositories
 {
-    public class ProductService : IProductService
+    public class CatalogRepository : ICatalogRepository
     {
         private readonly CatalogDbContext _db;
 
-        public ProductService(CatalogDbContext db)
+        public CatalogRepository(CatalogDbContext db)
         {
             _db = db;
         }
 
-        public async Task<(List<ProductResponseDto>,int)> SearchProductAsync(string? query, int? categoryId, decimal? minPrice, decimal? maxPrice,string? sortBy, int page = 1, int pageSize = 10)
+        public async Task<(List<ProductResponseDto> products, int totalCount)> SearchProductsAsync(
+            string? query, int? categoryId, decimal? minPrice, decimal? maxPrice, string? sortBy,
+            int page = 1, int pageSize = 10, CancellationToken ct = default)
         {
             var q = _db.Products.AsQueryable();
 
@@ -40,35 +42,38 @@ namespace CapShop.CatalogService.Services
                 _ => q.OrderBy(x => x.Name)
             };
 
-            var totalCount = await q.CountAsync();
+            var totalCount = await q.CountAsync(ct);
+
             var products = await q
                 .Include(x => x.Category)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
-                .ToListAsync();
+                .ToListAsync(ct);
 
-            var dtos = products.Select(MapToDto).ToList();
-            return (dtos, totalCount);
+            return (products.Select(MapToDto).ToList(), totalCount);
         }
 
-        public async Task<ProductResponseDto?> GetProductByIdAsync(int id)
+        public async Task<ProductResponseDto?> GetProductByIdAsync(int id, CancellationToken ct = default)
         {
-            var product = await _db.Products.Include(x => x.Category).FirstOrDefaultAsync(x => x.Id == id && x.IsActive);
+            var product = await _db.Products
+                .Include(x => x.Category)
+                .FirstOrDefaultAsync(x => x.Id == id && x.IsActive, ct);
+
             return product is null ? null : MapToDto(product);
         }
 
-        public async Task<List<ProductResponseDto>> GetFeaturedProductsAsync()
+        public async Task<List<ProductResponseDto>> GetFeaturedProductsAsync(CancellationToken ct = default)
         {
             var featured = await _db.Products
                 .Where(x => x.IsActive && x.Stock > 0)
                 .Include(x => x.Category)
                 .Take(6)
-                .ToListAsync();
+                .ToListAsync(ct);
 
             return featured.Select(MapToDto).ToList();
         }
 
-        public async Task<ProductResponseDto> CreateProductAsync(CreateProductDto dto)
+        public async Task<ProductResponseDto> CreateProductAsync(CreateProductDto dto, CancellationToken ct = default)
         {
             var product = new Product
             {
@@ -82,19 +87,18 @@ namespace CapShop.CatalogService.Services
             };
 
             _db.Products.Add(product);
-            await _db.SaveChangesAsync();
+            await _db.SaveChangesAsync(ct);
 
-            // Reload with Category included
-            var createdProduct = await _db.Products
+            var created = await _db.Products
                 .Include(x => x.Category)
-                .FirstAsync(x => x.Id == product.Id);
+                .FirstAsync(x => x.Id == product.Id, ct);
 
-            return MapToDto(createdProduct);
+            return MapToDto(created);
         }
 
-        public async Task<bool> UpdateProductAsync(int id, UpdateProductDto dto)
+        public async Task<bool> UpdateProductAsync(int id, UpdateProductDto dto, CancellationToken ct = default)
         {
-            var product = await _db.Products.FindAsync(id);
+            var product = await _db.Products.FindAsync(new object[] { id }, ct);
             if (product is null) return false;
 
             product.Name = dto.Name;
@@ -106,34 +110,32 @@ namespace CapShop.CatalogService.Services
             product.IsActive = dto.IsActive;
             product.UpdatedAtUtc = DateTime.UtcNow;
 
-            _db.Products.Update(product);
-            await _db.SaveChangesAsync();
+            await _db.SaveChangesAsync(ct);
             return true;
         }
 
-        public async Task<bool> UpdateStockAsync(int id, int quantity)
+        public async Task<bool> UpdateStockAsync(int id, int quantity, CancellationToken ct = default)
         {
-            var product = await _db.Products.FindAsync(id);
+            var product = await _db.Products.FindAsync(new object[] { id }, ct);
             if (product is null) return false;
 
             product.Stock = quantity;
             product.UpdatedAtUtc = DateTime.UtcNow;
-            _db.Products.Update(product);
-            await _db.SaveChangesAsync();
+            await _db.SaveChangesAsync(ct);
             return true;
         }
 
-        public async Task<bool> DeleteProductAsync(int id)
+        public async Task<bool> DeleteProductAsync(int id, CancellationToken ct = default)
         {
-            var product = await _db.Products.FindAsync(id);
+            var product = await _db.Products.FindAsync(new object[] { id }, ct);
             if (product is null) return false;
 
             _db.Products.Remove(product);
-            await _db.SaveChangesAsync();
+            await _db.SaveChangesAsync(ct);
             return true;
         }
 
-        private ProductResponseDto MapToDto(Product product)
+        private static ProductResponseDto MapToDto(Product product)
         {
             return new ProductResponseDto
             {
@@ -145,13 +147,11 @@ namespace CapShop.CatalogService.Services
                 ImageUrl = product.ImageUrl,
                 Category = new CategoryResponseDto
                 {
-                    Id = product.Category!.Id,
+                    Id = product.Category.Id,
                     Name = product.Category.Name,
                     Description = product.Category.Description
                 }
             };
         }
-
-       
     }
 }

@@ -5,19 +5,19 @@ using CapShop.OrderService.DTOs.Checkout;
 using CapShop.OrderService.DTOs.Payment;
 using CapShop.OrderService.DTOs.Order;
 using CapShop.OrderService.Models;
-using CapShop.OrderService.Services.Interfaces;
+using CapShop.OrderService.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using System.Net.Http.Json;
 
-namespace CapShop.OrderService.Services
+namespace CapShop.OrderService.Infrastructure.Repositories
 {
-    public class OrderService : IOrderService
+    public class OrderRepository : IOrderRepository
     {
         private readonly OrderDbContext _db;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly string _catalogBaseUrl;
 
-        public OrderService(OrderDbContext db, IHttpClientFactory httpClientFactory, IConfiguration configuration)
+        public OrderRepository(OrderDbContext db, IHttpClientFactory httpClientFactory, IConfiguration configuration)
         {
             _db = db;
             _httpClientFactory = httpClientFactory;
