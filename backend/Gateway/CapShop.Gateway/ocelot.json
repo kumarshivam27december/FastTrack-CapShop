@@ -10,7 +10,7 @@
         }
       ],
       "UpstreamPathTemplate": "/gateway/admin/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ]
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ]
     },
     {
       "DownstreamPathTemplate": "/auth/{everything}",
@@ -22,7 +22,7 @@
         }
       ],
       "UpstreamPathTemplate": "/gateway/auth/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ]
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" , "OPTIONS"]
     },
     {
       "DownstreamPathTemplate": "/catalog/{everything}",
@@ -34,7 +34,7 @@
         }
       ],
       "UpstreamPathTemplate": "/gateway/catalog/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ]
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ]
     },
     {
       "DownstreamPathTemplate": "/orders/{everything}",
@@ -46,7 +46,7 @@
         }
       ],
       "UpstreamPathTemplate": "/gateway/orders/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ]
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" , "OPTIONS"]
     }
   ],
   "GlobalConfiguration": {
