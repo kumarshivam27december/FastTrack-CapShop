@@ -29,6 +29,12 @@ namespace CapShop.AuthService.Infrastructure.Repositories
             return Task.CompletedTask;
         }
 
+        public Task UpdateUserAsync(User user, CancellationToken ct = default)
+        {
+            _db.Users.Update(user);
+            return Task.CompletedTask;
+        }
+
         public Task<User?> GetActiveUserByEmailWithRolesAsync(string email, CancellationToken ct = default)
         {
             return _db.Users

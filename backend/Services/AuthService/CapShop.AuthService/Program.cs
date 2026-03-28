@@ -49,6 +49,10 @@ builder.Services.AddDbContext<AuthDbContext>(options =>
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IAuthAppService, AuthAppService>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+builder.Services.AddScoped<ISmsService, SmsService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IOtpService, OtpService>();
+builder.Services.AddScoped<IAuthenticatorService, AuthenticatorService>();
 
 var secret = builder.Configuration["JwtSettings:SecretKey"];
 if (string.IsNullOrWhiteSpace(secret))
