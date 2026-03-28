@@ -28,15 +28,6 @@ export default function OrdersPage() {
     loadOrders();
   }, [loadOrders]);
 
-  async function handleCancel(id) {
-    try {
-      await orderApi.cancelOrder(token, id);
-      await loadOrders();
-    } catch (err) {
-      alert(err.message);
-    }
-  }
-
   return (
     <section className="section">
       <h1>My Orders</h1>
@@ -68,13 +59,7 @@ export default function OrdersPage() {
                   <div className="inline-actions">
                     <Link to={`/orders/${order.id}`} className="btn btn-outline">View</Link>
                     {order.status !== 'Delivered' && order.status !== 'Cancelled' && (
-                      <button
-                        type="button"
-                        className="btn btn-outline"
-                        onClick={() => handleCancel(order.id)}
-                      >
-                        Cancel
-                      </button>
+                      <Link to={`/orders/${order.id}/cancel`} className="btn btn-outline">Cancel</Link>
                     )}
                   </div>
                 </td>

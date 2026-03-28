@@ -52,6 +52,11 @@ export default function OrderDetailsPage() {
         <p>Status: <StatusBadge status={order.status} /></p>
         <p>Total: Rs. {Number(order.totalAmount).toFixed(2)}</p>
         <p>Placed: {new Date(order.createdAtUtc).toLocaleString()}</p>
+        {order.status !== 'Delivered' && order.status !== 'Cancelled' && (
+          <div className="inline-actions">
+            <Link to={`/orders/${order.id}/cancel`} className="btn btn-outline">Cancel This Order</Link>
+          </div>
+        )}
       </div>
 
       <div className="table-wrap card">

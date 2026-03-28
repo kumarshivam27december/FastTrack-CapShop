@@ -11,7 +11,12 @@ import CartPage from './pages/CartPage';
 import CheckoutPage from './pages/CheckoutPage';
 import OrdersPage from './pages/OrdersPage';
 import OrderDetailsPage from './pages/OrderDetailsPage';
-import AdminDashboardPage from './pages/AdminDashboardPage';
+import CancelOrderConfirmPage from './pages/CancelOrderConfirmPage';
+import AdminShell from './components/AdminShell';
+import AdminOverviewPage from './pages/AdminOverviewPage';
+import AdminOrdersPage from './pages/AdminOrdersPage';
+import AdminProductsPage from './pages/AdminProductsPage';
+import AdminReportsPage from './pages/AdminReportsPage';
 import NotFoundPage from './pages/NotFoundPage';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
@@ -61,15 +66,28 @@ function App() {
                 )}
               />
               <Route
+                path="orders/:id/cancel"
+                element={(
+                  <ProtectedRoute>
+                    <CancelOrderConfirmPage />
+                  </ProtectedRoute>
+                )}
+              />
+              <Route
                 path="admin"
                 element={(
                   <ProtectedRoute>
                     <AdminRoute>
-                      <AdminDashboardPage />
+                      <AdminShell />
                     </AdminRoute>
                   </ProtectedRoute>
                 )}
-              />
+              >
+                <Route index element={<AdminOverviewPage />} />
+                <Route path="orders" element={<AdminOrdersPage />} />
+                <Route path="products" element={<AdminProductsPage />} />
+                <Route path="reports" element={<AdminReportsPage />} />
+              </Route>
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Routes>
