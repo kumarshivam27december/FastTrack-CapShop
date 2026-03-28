@@ -1,22 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { catalogApi } from '../api/catalogApi';
+import { adminApi } from '../api/adminApi';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import LoadingSpinner from '../components/LoadingSpinner';
-
-const CATEGORY_OPTIONS = [
-  { id: 1, name: 'Electronics' },
-  { id: 2, name: 'Clothing' },
-  { id: 3, name: 'Books' },
-  { id: 4, name: 'Home' }
-];
 
 export default function CatalogPage() {
   const { isAuthenticated } = useAuth();
   const { addToCart } = useCart();
   const [query, setQuery] = useState('');
   const [categoryId, setCategoryId] = useState('');
+  const [categories, setCategories] = useState([]);
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
   const [sortBy, setSortBy] = useState('');
@@ -44,8 +39,12 @@ export default function CatalogPage() {
       setLoading(true);
       setError('');
       try {
-        const data = await catalogApi.searchProducts(filters);
-        setResult(data);
+        const [productsData, categoriesData] = await Promise.all([
+          catalogApi.searchProducts(filters),
+          adminApi.getCategories()
+        ]);
+        setResult(productsData);
+        setCategories(Array.isArray(categoriesData) ? categoriesData : []);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -89,7 +88,7 @@ export default function CatalogPage() {
           }}
         >
           <option value="">All categories</option>
-          {CATEGORY_OPTIONS.map((category) => (
+          {categories.map((category) => (
             <option key={category.id} value={category.id}>{category.name}</option>
           ))}
         </select>

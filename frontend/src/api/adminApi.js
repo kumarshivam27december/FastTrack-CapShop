@@ -9,5 +9,15 @@ export const adminApi = {
   getSalesReport: (token, from, to) =>
     apiRequest(`/admin/reports/sales?from=${from}&to=${to}`, { token }),
   exportSalesCsv: (token, from, to) =>
-    apiRequest(`/admin/reports/export/csv?from=${from}&to=${to}`, { token, responseType: 'blob' })
+    apiRequest(`/admin/reports/export/csv?from=${from}&to=${to}`, { token, responseType: 'blob' }),
+  
+  // Categories
+  getCategories: () => apiRequest('/catalog/categories'),
+  getCategoryById: (id) => apiRequest(`/catalog/categories/${id}`),
+  createCategory: (token, payload) =>
+    apiRequest('/catalog/categories', { method: 'POST', token, body: payload }),
+  updateCategory: (token, id, payload) =>
+    apiRequest(`/catalog/categories/${id}`, { method: 'PUT', token, body: payload }),
+  deleteCategory: (token, id) =>
+    apiRequest(`/catalog/categories/${id}`, { method: 'DELETE', token })
 };

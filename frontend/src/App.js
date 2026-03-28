@@ -16,6 +16,7 @@ import AdminShell from './components/AdminShell';
 import AdminOverviewPage from './pages/AdminOverviewPage';
 import AdminOrdersPage from './pages/AdminOrdersPage';
 import AdminProductsPage from './pages/AdminProductsPage';
+import AdminCategoriesPage from './pages/AdminCategoriesPage';
 import AdminReportsPage from './pages/AdminReportsPage';
 import NotFoundPage from './pages/NotFoundPage';
 import { AuthProvider } from './context/AuthContext';
@@ -86,6 +87,7 @@ function App() {
                 <Route index element={<AdminOverviewPage />} />
                 <Route path="orders" element={<AdminOrdersPage />} />
                 <Route path="products" element={<AdminProductsPage />} />
+                <Route path="categories" element={<AdminCategoriesPage />} />
                 <Route path="reports" element={<AdminReportsPage />} />
               </Route>
               <Route path="*" element={<NotFoundPage />} />

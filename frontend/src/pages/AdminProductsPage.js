@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { catalogApi } from '../api/catalogApi';
+import { adminApi } from '../api/adminApi';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 
@@ -17,6 +18,7 @@ const INITIAL_PRODUCT_FORM = {
 export default function AdminProductsPage() {
   const { token } = useAuth();
   const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [productForm, setProductForm] = useState(INITIAL_PRODUCT_FORM);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -26,8 +28,12 @@ export default function AdminProductsPage() {
     setError('');
 
     try {
-      const data = await catalogApi.searchProducts({ page: 1, pageSize: 200 });
-      setProducts(Array.isArray(data?.products) ? data.products : []);
+      const [productsData, categoriesData] = await Promise.all([
+        catalogApi.searchProducts({ page: 1, pageSize: 200 }),
+        adminApi.getCategories()
+      ]);
+      setProducts(Array.isArray(productsData?.products) ? productsData.products : []);
+      setCategories(Array.isArray(categoriesData) ? categoriesData : []);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -165,10 +171,9 @@ export default function AdminProductsPage() {
             value={productForm.categoryId}
             onChange={(e) => setProductForm((prev) => ({ ...prev, categoryId: Number(e.target.value) }))}
           >
-            <option value={1}>Electronics</option>
-            <option value={2}>Clothing</option>
-            <option value={3}>Books</option>
-            <option value={4}>Home</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>{cat.name}</option>
+            ))}
           </select>
           <label className="inline-actions">
             <input

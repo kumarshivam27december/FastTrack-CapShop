@@ -17,6 +17,7 @@ export default function AdminShell() {
           <SideItem to="/admin">Overview</SideItem>
           <SideItem to="/admin/orders">Orders</SideItem>
           <SideItem to="/admin/products">Products</SideItem>
+          <SideItem to="/admin/categories">Categories</SideItem>
           <SideItem to="/admin/reports">Reports</SideItem>
         </nav>
       </aside>
