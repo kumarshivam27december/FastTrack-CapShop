@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { authApi } from '../api/authApi';
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
+  const { setAuth } = useAuth();
   const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -16,9 +17,21 @@ export default function LoginPage() {
     setError('');
 
     try {
-      await login(form);
-      const target = location.state?.from || '/';
-      navigate(target, { replace: true });
+      // Try login with 2FA support
+      const response = await authApi.loginStep1(form);
+
+      // If token is already present, no 2FA is required
+      if (response.token) {
+        await setAuth({ token: response.token, email: response.email, role: response.role });
+        const target = location.state?.from || '/';
+        navigate(target, { replace: true });
+      } else {
+        // 2FA is required
+        navigate('/two-factor-method', {
+          state: { twoFactorData: response },
+          replace: true
+        });
+      }
     } catch (err) {
       setError(err.message);
     } finally {

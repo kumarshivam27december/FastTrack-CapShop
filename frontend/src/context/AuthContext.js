@@ -69,6 +69,21 @@ export function AuthProvider({ children }) {
     await authApi.signup(payload);
   }
 
+  async function setAuth(authData) {
+    // Direct method to set auth after 2FA verification
+    setToken(authData.token);
+    setRole(authData.role);
+    setEmail(authData.email);
+    localStorage.setItem(TOKEN_KEY, authData.token);
+    localStorage.setItem(ROLE_KEY, authData.role);
+    localStorage.setItem(EMAIL_KEY, authData.email);
+
+    if (authData.token) {
+      const me = await authApi.me(authData.token);
+      setRoles(Array.isArray(me?.roles) ? me.roles : []);
+    }
+  }
+
   function logout() {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(ROLE_KEY);
@@ -92,6 +107,7 @@ export function AuthProvider({ children }) {
       isAuthenticated,
       isAdmin,
       login,
+      setAuth,
       signup,
       logout
     }),

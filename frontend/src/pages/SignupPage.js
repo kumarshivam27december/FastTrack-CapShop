@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 
 export default function SignupPage() {
   const navigate = useNavigate();
-  const { signup, login } = useAuth();
+  const { signup } = useAuth();
   const [form, setForm] = useState({
     fullName: '',
     email: '',
@@ -21,8 +21,10 @@ export default function SignupPage() {
 
     try {
       await signup(form);
-      await login({ email: form.email, password: form.password });
-      navigate('/');
+      navigate('/login', {
+        replace: true,
+        state: { registrationSuccess: true, email: form.email }
+      });
     } catch (err) {
       setError(err.message);
     } finally {

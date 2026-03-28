@@ -7,6 +7,9 @@ import CatalogPage from './pages/CatalogPage';
 import ProductDetailPage from './pages/ProductDetailPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
+import TwoFactorMethodPage from './pages/TwoFactorMethodPage';
+import TwoFactorVerifyPage from './pages/TwoFactorVerifyPage';
+import TwoFactorAuthenticatorPage from './pages/TwoFactorAuthenticatorPage';
 import CartPage from './pages/CartPage';
 import CheckoutPage from './pages/CheckoutPage';
 import OrdersPage from './pages/OrdersPage';
@@ -34,6 +37,9 @@ function App() {
               <Route path="products/:id" element={<ProductDetailPage />} />
               <Route path="login" element={<LoginPage />} />
               <Route path="signup" element={<SignupPage />} />
+              <Route path="two-factor-method" element={<TwoFactorMethodPage />} />
+              <Route path="two-factor-verify" element={<TwoFactorVerifyPage />} />
+              <Route path="two-factor-authenticator" element={<TwoFactorAuthenticatorPage />} />
               <Route
                 path="cart"
                 element={(
