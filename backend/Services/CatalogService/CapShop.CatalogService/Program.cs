@@ -46,6 +46,8 @@ builder.Services.AddDbContext<CatalogDbContext>(opts =>
 
 builder.Services.AddScoped<ICatalogRepository, CatalogRepository>();
 builder.Services.AddScoped<IProductAppService, ProductAppService>();
+builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
+builder.Services.AddScoped<ICategoryAppService, CategoryAppService>();
 
 var secret = builder.Configuration["JwtSettings:SecretKey"];
 if (string.IsNullOrWhiteSpace(secret))
