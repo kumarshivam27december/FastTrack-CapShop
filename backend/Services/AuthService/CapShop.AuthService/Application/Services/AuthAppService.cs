@@ -183,6 +183,83 @@ namespace CapShop.AuthService.Application.Services
             };
         }
 
+        public async Task<SendOtpResponseDto> ForgotPasswordAsync(ForgotPasswordRequestDto request, CancellationToken ct = default)
+        {
+            var email = request.Email?.Trim().ToLowerInvariant() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(email))
+                throw new InvalidOperationException("Email is required.");
+
+            var user = await _repo.GetUserByEmailAsync(email, ct);
+
+            // Do not reveal if email exists to reduce account-enumeration risk.
+            if (user is null)
+            {
+                return new SendOtpResponseDto
+                {
+                    Success = true,
+                    Message = "If this email exists, a password reset OTP has been sent.",
+                    Destination = MaskEmail(email)
+                };
+            }
+
+            if (user.LastOtpSentUtc.HasValue && (DateTime.UtcNow - user.LastOtpSentUtc.Value).TotalSeconds < 30)
+                throw new InvalidOperationException("Please wait before requesting a new OTP.");
+
+            var otp = _otpService.GenerateOtp(6);
+            var expiryMinutes = int.Parse(_configuration["Otp:ExpiryMinutes"] ?? "5");
+
+            user.CurrentOtp = otp;
+            user.OtpExpiryUtc = DateTime.UtcNow.AddMinutes(expiryMinutes);
+            user.LastOtpSentUtc = DateTime.UtcNow;
+
+            await _emailService.SendOtpAsync(user.Email, otp);
+
+            await _repo.UpdateUserAsync(user, ct);
+            await _repo.SaveChangesAsync(ct);
+
+            _logger.LogInformation("Password reset OTP sent to {Email}", user.Email);
+
+            return new SendOtpResponseDto
+            {
+                Success = true,
+                Message = "If this email exists, a password reset OTP has been sent.",
+                Destination = MaskEmail(user.Email)
+            };
+        }
+
+        public async Task ResetPasswordAsync(ResetPasswordRequestDto request, CancellationToken ct = default)
+        {
+            var email = request.Email?.Trim().ToLowerInvariant() ?? string.Empty;
+            var otp = request.Otp?.Trim() ?? string.Empty;
+            var newPassword = request.NewPassword?.Trim() ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(otp) || string.IsNullOrWhiteSpace(newPassword))
+                throw new InvalidOperationException("Email, OTP, and new password are required.");
+
+            if (newPassword.Length < 6)
+                throw new InvalidOperationException("New password must be at least 6 characters.");
+
+            var user = await _repo.GetUserByEmailAsync(email, ct);
+            if (user is null)
+                throw new UnauthorizedAccessException("Invalid OTP or email.");
+
+            if (!_otpService.ValidateOtp(otp, user.CurrentOtp ?? string.Empty, user.OtpExpiryUtc))
+                throw new UnauthorizedAccessException("Invalid or expired OTP.");
+
+            if (BCrypt.Net.BCrypt.Verify(newPassword, user.PasswordHash))
+                throw new InvalidOperationException("New password must be different from current password.");
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+            user.IsGoogleAccount = false;
+            user.CurrentOtp = null;
+            user.OtpExpiryUtc = null;
+
+            await _repo.UpdateUserAsync(user, ct);
+            await _repo.SaveChangesAsync(ct);
+
+            _logger.LogInformation("Password reset completed for {Email}", user.Email);
+        }
+
         public async Task<MeResponseDto> GetMeAsync(ClaimsPrincipal user, CancellationToken ct = default)
         {
             var dbUser = await GetCurrentUserAsync(user, ct);

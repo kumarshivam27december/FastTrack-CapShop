@@ -44,6 +44,22 @@ namespace CapShop.AuthService.Controllers
             return Ok(response);
         }
 
+        [HttpPost("forgot-password")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequestDto request, CancellationToken ct)
+        {
+            var response = await _authAppService.ForgotPasswordAsync(request, ct);
+            return Ok(response);
+        }
+
+        [HttpPost("reset-password")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequestDto request, CancellationToken ct)
+        {
+            await _authAppService.ResetPasswordAsync(request, ct);
+            return Ok(new { message = "Password reset successful." });
+        }
+
         [HttpPost("login-step1")]
         [AllowAnonymous]
         public async Task<IActionResult> LoginStep1([FromBody] LoginRequestDto request, CancellationToken ct)
