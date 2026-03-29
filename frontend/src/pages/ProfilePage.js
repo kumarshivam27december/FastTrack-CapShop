@@ -21,6 +21,7 @@ export default function ProfilePage() {
     fullName,
     phone,
     avatarUrl,
+    isGoogleAccount,
     updateProfile,
     changePassword,
     isAuthenticatorEnabled,
@@ -119,7 +120,7 @@ export default function ProfilePage() {
     const newPassword = passwordForm.newPassword.trim();
     const confirmPassword = passwordForm.confirmPassword.trim();
 
-    if (!currentPassword || !newPassword || !confirmPassword) {
+    if (!newPassword || !confirmPassword || (!currentPassword && !isGoogleAccount)) {
       setPasswordError('Please fill all password fields.');
       return;
     }
@@ -137,7 +138,7 @@ export default function ProfilePage() {
     setChangingPassword(true);
     try {
       await changePassword({ currentPassword, newPassword });
-      setPasswordMessage('Password changed successfully.');
+      setPasswordMessage(isGoogleAccount ? 'Password set successfully. You can now login with email and password too.' : 'Password changed successfully.');
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (err) {
       setPasswordError(err.message || 'Could not change password. Please try again.');
@@ -238,6 +239,7 @@ export default function ProfilePage() {
             <p><strong>{effectiveName || 'User'}</strong></p>
             <p className="muted">{email}</p>
             <p className="muted">Role: {effectiveRole}</p>
+            {isGoogleAccount && <span className="profile-google-badge">Google account</span>}
           </div>
         </div>
 
@@ -290,21 +292,27 @@ export default function ProfilePage() {
 
       <form className="card profile-card section" onSubmit={handleChangePassword}>
         <div className="section-head">
-          <h2>Change Password</h2>
+          <h2>{isGoogleAccount ? 'Set Password' : 'Change Password'}</h2>
         </div>
+
+        {isGoogleAccount && (
+          <p className="hint">You signed up with Google. Set a password to enable normal email/password login.</p>
+        )}
 
         {passwordError && <p className="message error">{passwordError}</p>}
         {passwordMessage && <p className="message success">{passwordMessage}</p>}
 
-        <label>
-          Current Password
-          <input
-            type="password"
-            value={passwordForm.currentPassword}
-            onChange={(event) => updatePasswordField('currentPassword', event.target.value)}
-            autoComplete="current-password"
-          />
-        </label>
+        {!isGoogleAccount && (
+          <label>
+            Current Password
+            <input
+              type="password"
+              value={passwordForm.currentPassword}
+              onChange={(event) => updatePasswordField('currentPassword', event.target.value)}
+              autoComplete="current-password"
+            />
+          </label>
+        )}
 
         <label>
           New Password
@@ -328,7 +336,7 @@ export default function ProfilePage() {
 
         <div className="inline-actions">
           <button type="submit" className="btn btn-solid" disabled={changingPassword}>
-            {changingPassword ? 'Changing...' : 'Change Password'}
+            {changingPassword ? (isGoogleAccount ? 'Setting...' : 'Changing...') : (isGoogleAccount ? 'Set Password' : 'Change Password')}
           </button>
         </div>
       </form>

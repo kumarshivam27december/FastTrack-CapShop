@@ -490,6 +490,27 @@ th {
   gap: 12px;
 }
 
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.google-signin-wrap {
+  min-height: 44px;
+  display: flex;
+  justify-content: center;
+}
+
 .profile-page {
   max-width: 760px;
 }
@@ -538,6 +559,25 @@ th {
 
 .profile-meta p {
   margin: 4px 0;
+}
+
+.profile-google-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #7c2d12;
+  background: #ffedd5;
+  border: 1px solid #fdba74;
+}
+
+[data-theme='dark'] .profile-google-badge {
+  color: #ffe5c5;
+  background: #4a2a1b;
+  border-color: #a35f35;
 }
 
 .profile-authenticator-box {

@@ -10,6 +10,7 @@ const FULL_NAME_KEY = 'capshop_full_name';
 const PHONE_KEY = 'capshop_phone';
 const AVATAR_URL_KEY = 'capshop_avatar_url';
 const AUTH_APP_ENABLED_KEY = 'capshop_auth_app_enabled';
+const GOOGLE_ACCOUNT_KEY = 'capshop_is_google_account';
 
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(localStorage.getItem(TOKEN_KEY));
@@ -21,6 +22,9 @@ export function AuthProvider({ children }) {
   const [isAuthenticatorEnabled, setIsAuthenticatorEnabled] = useState(
     localStorage.getItem(AUTH_APP_ENABLED_KEY) === 'true'
   );
+  const [isGoogleAccount, setIsGoogleAccount] = useState(
+    localStorage.getItem(GOOGLE_ACCOUNT_KEY) === 'true'
+  );
   const [roles, setRoles] = useState([]);
   const [initialized, setInitialized] = useState(false);
 
@@ -31,6 +35,7 @@ export function AuthProvider({ children }) {
     const nextPhone = profile?.phone || '';
     const nextAvatarUrl = profile?.avatarUrl || '';
     const nextAuthenticatorEnabled = Boolean(profile?.isAuthenticatorEnabled);
+    const nextIsGoogleAccount = Boolean(profile?.isGoogleAccount);
 
     setRoles(roleList);
     setEmail(nextEmail);
@@ -38,11 +43,13 @@ export function AuthProvider({ children }) {
     setPhone(nextPhone);
     setAvatarUrl(nextAvatarUrl);
     setIsAuthenticatorEnabled(nextAuthenticatorEnabled);
+    setIsGoogleAccount(nextIsGoogleAccount);
 
     localStorage.setItem(EMAIL_KEY, nextEmail);
     localStorage.setItem(FULL_NAME_KEY, nextName);
     localStorage.setItem(PHONE_KEY, nextPhone);
     localStorage.setItem(AUTH_APP_ENABLED_KEY, String(nextAuthenticatorEnabled));
+    localStorage.setItem(GOOGLE_ACCOUNT_KEY, String(nextIsGoogleAccount));
 
     if (nextAvatarUrl) {
       localStorage.setItem(AVATAR_URL_KEY, nextAvatarUrl);
@@ -74,6 +81,7 @@ export function AuthProvider({ children }) {
         localStorage.removeItem(PHONE_KEY);
         localStorage.removeItem(AVATAR_URL_KEY);
         localStorage.removeItem(AUTH_APP_ENABLED_KEY);
+        localStorage.removeItem(GOOGLE_ACCOUNT_KEY);
         setToken(null);
         setRole(null);
         setEmail(null);
@@ -81,6 +89,7 @@ export function AuthProvider({ children }) {
         setPhone('');
         setAvatarUrl('');
         setIsAuthenticatorEnabled(false);
+        setIsGoogleAccount(false);
         setRoles([]);
       } finally {
         setInitialized(true);
@@ -167,6 +176,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem(PHONE_KEY);
     localStorage.removeItem(AVATAR_URL_KEY);
     localStorage.removeItem(AUTH_APP_ENABLED_KEY);
+    localStorage.removeItem(GOOGLE_ACCOUNT_KEY);
     setToken(null);
     setRole(null);
     setEmail(null);
@@ -174,6 +184,7 @@ export function AuthProvider({ children }) {
     setPhone('');
     setAvatarUrl('');
     setIsAuthenticatorEnabled(false);
+    setIsGoogleAccount(false);
     setRoles([]);
   }, []);
 
@@ -187,6 +198,7 @@ export function AuthProvider({ children }) {
     fullName,
     phone,
     avatarUrl,
+    isGoogleAccount,
     isAuthenticatorEnabled,
     roles,
     initialized,
@@ -208,6 +220,7 @@ export function AuthProvider({ children }) {
     fullName,
     phone,
     avatarUrl,
+    isGoogleAccount,
     isAuthenticatorEnabled,
     roles,
     initialized,
