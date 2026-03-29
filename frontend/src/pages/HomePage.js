@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { catalogApi } from '../api/catalogApi';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { useAuth } from '../context/AuthContext';
 
 export default function HomePage() {
   const [featured, setFeatured] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { isAdmin } = useAuth();
 
   useEffect(() => {
     async function load() {
@@ -34,7 +36,7 @@ export default function HomePage() {
         </p>
         <div className="hero-actions">
           <Link to="/catalog" className="btn btn-solid">Browse Catalog</Link>
-          <Link to="/admin" className="btn btn-outline">Open Admin</Link>
+          {isAdmin && <Link to="/admin" className="btn btn-outline">Open Admin</Link>}
         </div>
       </div>
 

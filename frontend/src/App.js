@@ -24,84 +24,87 @@ import AdminReportsPage from './pages/AdminReportsPage';
 import NotFoundPage from './pages/NotFoundPage';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
+import { ThemeProvider } from './context/ThemeContext';
 
 function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <CartProvider>
-          <Routes>
-            <Route path="/" element={<Layout />}>
-              <Route index element={<HomePage />} />
-              <Route path="catalog" element={<CatalogPage />} />
-              <Route path="products/:id" element={<ProductDetailPage />} />
-              <Route path="login" element={<LoginPage />} />
-              <Route path="signup" element={<SignupPage />} />
-              <Route path="two-factor-method" element={<TwoFactorMethodPage />} />
-              <Route path="two-factor-verify" element={<TwoFactorVerifyPage />} />
-              <Route path="two-factor-authenticator" element={<TwoFactorAuthenticatorPage />} />
-              <Route
-                path="cart"
-                element={(
-                  <ProtectedRoute>
-                    <CartPage />
-                  </ProtectedRoute>
-                )}
-              />
-              <Route
-                path="checkout"
-                element={(
-                  <ProtectedRoute>
-                    <CheckoutPage />
-                  </ProtectedRoute>
-                )}
-              />
-              <Route
-                path="orders"
-                element={(
-                  <ProtectedRoute>
-                    <OrdersPage />
-                  </ProtectedRoute>
-                )}
-              />
-              <Route
-                path="orders/:id"
-                element={(
-                  <ProtectedRoute>
-                    <OrderDetailsPage />
-                  </ProtectedRoute>
-                )}
-              />
-              <Route
-                path="orders/:id/cancel"
-                element={(
-                  <ProtectedRoute>
-                    <CancelOrderConfirmPage />
-                  </ProtectedRoute>
-                )}
-              />
-              <Route
-                path="admin"
-                element={(
-                  <ProtectedRoute>
-                    <AdminRoute>
-                      <AdminShell />
-                    </AdminRoute>
-                  </ProtectedRoute>
-                )}
-              >
-                <Route index element={<AdminOverviewPage />} />
-                <Route path="orders" element={<AdminOrdersPage />} />
-                <Route path="products" element={<AdminProductsPage />} />
-                <Route path="categories" element={<AdminCategoriesPage />} />
-                <Route path="reports" element={<AdminReportsPage />} />
+    <ThemeProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <CartProvider>
+            <Routes>
+              <Route path="/" element={<Layout />}>
+                <Route index element={<HomePage />} />
+                <Route path="catalog" element={<CatalogPage />} />
+                <Route path="products/:id" element={<ProductDetailPage />} />
+                <Route path="login" element={<LoginPage />} />
+                <Route path="signup" element={<SignupPage />} />
+                <Route path="two-factor-method" element={<TwoFactorMethodPage />} />
+                <Route path="two-factor-verify" element={<TwoFactorVerifyPage />} />
+                <Route path="two-factor-authenticator" element={<TwoFactorAuthenticatorPage />} />
+                <Route
+                  path="cart"
+                  element={(
+                    <ProtectedRoute>
+                      <CartPage />
+                    </ProtectedRoute>
+                  )}
+                />
+                <Route
+                  path="checkout"
+                  element={(
+                    <ProtectedRoute>
+                      <CheckoutPage />
+                    </ProtectedRoute>
+                  )}
+                />
+                <Route
+                  path="orders"
+                  element={(
+                    <ProtectedRoute>
+                      <OrdersPage />
+                    </ProtectedRoute>
+                  )}
+                />
+                <Route
+                  path="orders/:id"
+                  element={(
+                    <ProtectedRoute>
+                      <OrderDetailsPage />
+                    </ProtectedRoute>
+                  )}
+                />
+                <Route
+                  path="orders/:id/cancel"
+                  element={(
+                    <ProtectedRoute>
+                      <CancelOrderConfirmPage />
+                    </ProtectedRoute>
+                  )}
+                />
+                <Route
+                  path="admin"
+                  element={(
+                    <ProtectedRoute>
+                      <AdminRoute>
+                        <AdminShell />
+                      </AdminRoute>
+                    </ProtectedRoute>
+                  )}
+                >
+                  <Route index element={<AdminOverviewPage />} />
+                  <Route path="orders" element={<AdminOrdersPage />} />
+                  <Route path="products" element={<AdminProductsPage />} />
+                  <Route path="categories" element={<AdminCategoriesPage />} />
+                  <Route path="reports" element={<AdminReportsPage />} />
+                </Route>
+                <Route path="*" element={<NotFoundPage />} />
               </Route>
-              <Route path="*" element={<NotFoundPage />} />
-            </Route>
-          </Routes>
-        </CartProvider>
-      </AuthProvider>
-    </BrowserRouter>
+            </Routes>
+          </CartProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
 

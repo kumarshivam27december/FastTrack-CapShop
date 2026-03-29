@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { useTheme } from '../context/ThemeContext';
 
 function NavItem({ to, children }) {
   return (
@@ -16,6 +17,7 @@ function NavItem({ to, children }) {
 export default function Layout() {
   const { isAuthenticated, isAdmin, email, logout } = useAuth();
   const { cart } = useCart();
+  const { isDarkMode, toggleTheme } = useTheme();
 
   return (
     <div className="app-shell">
@@ -35,6 +37,17 @@ export default function Layout() {
           </nav>
 
           <div className="auth-zone">
+            <button
+              type="button"
+              className="btn btn-outline theme-toggle-btn"
+              onClick={toggleTheme}
+              aria-label={`Switch to ${isDarkMode ? 'light' : 'dark'} mode`}
+              title={`Switch to ${isDarkMode ? 'light' : 'dark'} mode`}
+            >
+              <span aria-hidden="true" className="theme-toggle-symbol">
+                {isDarkMode ? '\u2600' : '\u263D'}
+              </span>
+            </button>
             {isAuthenticated ? (
               <>
                 <span className="user-chip">{email}</span>
