@@ -23,6 +23,7 @@ namespace CapShop.AuthService.Data
                 entity.Property(x => x.FullName).HasMaxLength(120).IsRequired();
                 entity.Property(x=>x.Email).HasMaxLength(200).IsRequired();
                 entity.Property(x => x.Phone).HasMaxLength(20);
+                entity.Property(x => x.AvatarUrl);
                 entity.Property(x => x.PasswordHash).IsRequired();
                 entity.HasIndex(x => x.Email).IsUnique();
             });

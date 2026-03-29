@@ -83,5 +83,13 @@ namespace CapShop.AuthService.Controllers
             var me = await _authAppService.GetMeAsync(User, ct);
             return Ok(me);
         }
+
+        [HttpPut("me")]
+        [Authorize]
+        public async Task<IActionResult> UpdateMe([FromBody] UpdateProfileRequestDto request, CancellationToken ct)
+        {
+            var me = await _authAppService.UpdateMeAsync(User, request, ct);
+            return Ok(me);
+        }
     }
 }

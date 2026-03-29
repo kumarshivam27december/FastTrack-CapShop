@@ -103,23 +103,42 @@ namespace CapShop.AuthService.Application.Services
             };
         }
 
-        public async Task<object> GetMeAsync(ClaimsPrincipal user, CancellationToken ct = default)
+        public async Task<MeResponseDto> GetMeAsync(ClaimsPrincipal user, CancellationToken ct = default)
         {
-            var email = user.Identity?.Name;
-            if (string.IsNullOrWhiteSpace(email))
-                throw new UnauthorizedAccessException("User identity not found.");
+            var dbUser = await GetCurrentUserAsync(user, ct);
+            return BuildMeResponse(dbUser);
+        }
 
-            var dbUser = await _repo.GetUserByEmailAsync(email, ct);
-            if (dbUser is null)
-                throw new UnauthorizedAccessException("User not found.");
+        public async Task<MeResponseDto> UpdateMeAsync(ClaimsPrincipal user, UpdateProfileRequestDto request, CancellationToken ct = default)
+        {
+            var dbUser = await GetCurrentUserAsync(user, ct);
 
-            var roles = dbUser.UserRoles.Select(x => x.Role.Name).ToList();
+            var fullName = request.FullName?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(fullName))
+                throw new InvalidOperationException("Full name is required.");
 
-            return new
-            {
-                email = dbUser.Email,
-                roles
-            };
+            var phone = request.Phone?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(phone))
+                throw new InvalidOperationException("Phone is required.");
+
+            if (fullName.Length > 120)
+                throw new InvalidOperationException("Full name is too long.");
+
+            if (phone.Length > 20)
+                throw new InvalidOperationException("Phone is too long.");
+
+            var avatarUrl = request.AvatarUrl?.Trim();
+            if (!string.IsNullOrWhiteSpace(avatarUrl) && avatarUrl.Length > 2_000_000)
+                throw new InvalidOperationException("Avatar image is too large.");
+
+            dbUser.FullName = fullName;
+            dbUser.Phone = phone;
+            dbUser.AvatarUrl = string.IsNullOrWhiteSpace(avatarUrl) ? null : avatarUrl;
+
+            await _repo.UpdateUserAsync(dbUser, ct);
+            await _repo.SaveChangesAsync(ct);
+
+            return BuildMeResponse(dbUser);
         }
 
         public async Task<TwoFactorAuthResponseDto> LoginStep1Async(LoginRequestDto request, CancellationToken ct = default)
@@ -315,6 +334,31 @@ namespace CapShop.AuthService.Application.Services
             if (string.IsNullOrWhiteSpace(phone) || phone.Length < 4)
                 return "****";
             return "****" + phone.Substring(phone.Length - 4);
+        }
+
+        private async Task<User> GetCurrentUserAsync(ClaimsPrincipal user, CancellationToken ct)
+        {
+            var email = user.Identity?.Name;
+            if (string.IsNullOrWhiteSpace(email))
+                throw new UnauthorizedAccessException("User identity not found.");
+
+            var dbUser = await _repo.GetUserByEmailAsync(email, ct);
+            if (dbUser is null)
+                throw new UnauthorizedAccessException("User not found.");
+
+            return dbUser;
+        }
+
+        private static MeResponseDto BuildMeResponse(User user)
+        {
+            return new MeResponseDto
+            {
+                FullName = user.FullName,
+                Email = user.Email,
+                Phone = user.Phone,
+                AvatarUrl = user.AvatarUrl,
+                Roles = user.UserRoles.Select(x => x.Role.Name).ToList()
+            };
         }
 
         private string MaskEmail(string email)

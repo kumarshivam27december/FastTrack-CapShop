@@ -96,7 +96,18 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
+
+    await db.Database.MigrateAsync();
+
+    await db.Database.ExecuteSqlRawAsync(@"
+IF COL_LENGTH('Users', 'AvatarUrl') IS NULL
+BEGIN
+    ALTER TABLE [Users] ADD [AvatarUrl] nvarchar(max) NULL;
+END");
+
     await CapShop.AuthService.Data.AuthDbSeeder.SeedAsync(db);
+    logger.LogInformation("Auth database startup checks completed.");
 }
 
 app.Run();

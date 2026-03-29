@@ -54,6 +54,9 @@ namespace CapShop.AuthService.Migrations
                     b.Property<string>("AuthenticatorSecret")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("AvatarUrl")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime2");
 

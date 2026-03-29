@@ -12,6 +12,8 @@ namespace CapShop.AuthService.Models
 
         public string Phone { get; set; } = string.Empty;
 
+        public string? AvatarUrl { get; set; }
+
         public string PasswordHash { get; set; } = string.Empty;
 
         public bool IsActive { get; set; } = true;
