@@ -22,6 +22,7 @@ export default function ProfilePage() {
     phone,
     avatarUrl,
     updateProfile,
+    changePassword,
     refreshProfile
   } = useAuth();
 
@@ -31,9 +32,17 @@ export default function ProfilePage() {
     avatarUrl: ''
   });
   const [saving, setSaving] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [passwordMessage, setPasswordMessage] = useState('');
+  const [passwordError, setPasswordError] = useState('');
 
   useEffect(() => {
     let isMounted = true;
@@ -86,6 +95,46 @@ export default function ProfilePage() {
       setError(err.message || 'Could not save profile. Please try again.');
     } finally {
       setSaving(false);
+    }
+  }
+
+  function updatePasswordField(field, value) {
+    setPasswordForm((prev) => ({ ...prev, [field]: value }));
+  }
+
+  async function handleChangePassword(event) {
+    event.preventDefault();
+    setPasswordMessage('');
+    setPasswordError('');
+
+    const currentPassword = passwordForm.currentPassword.trim();
+    const newPassword = passwordForm.newPassword.trim();
+    const confirmPassword = passwordForm.confirmPassword.trim();
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordError('Please fill all password fields.');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setPasswordError('New password must be at least 6 characters.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError('New password and confirm password do not match.');
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      await changePassword({ currentPassword, newPassword });
+      setPasswordMessage('Password changed successfully.');
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (err) {
+      setPasswordError(err.message || 'Could not change password. Please try again.');
+    } finally {
+      setChangingPassword(false);
     }
   }
 
@@ -188,6 +237,51 @@ export default function ProfilePage() {
               Remove Photo
             </button>
           )}
+        </div>
+      </form>
+
+      <form className="card profile-card section" onSubmit={handleChangePassword}>
+        <div className="section-head">
+          <h2>Change Password</h2>
+        </div>
+
+        {passwordError && <p className="message error">{passwordError}</p>}
+        {passwordMessage && <p className="message success">{passwordMessage}</p>}
+
+        <label>
+          Current Password
+          <input
+            type="password"
+            value={passwordForm.currentPassword}
+            onChange={(event) => updatePasswordField('currentPassword', event.target.value)}
+            autoComplete="current-password"
+          />
+        </label>
+
+        <label>
+          New Password
+          <input
+            type="password"
+            value={passwordForm.newPassword}
+            onChange={(event) => updatePasswordField('newPassword', event.target.value)}
+            autoComplete="new-password"
+          />
+        </label>
+
+        <label>
+          Confirm New Password
+          <input
+            type="password"
+            value={passwordForm.confirmPassword}
+            onChange={(event) => updatePasswordField('confirmPassword', event.target.value)}
+            autoComplete="new-password"
+          />
+        </label>
+
+        <div className="inline-actions">
+          <button type="submit" className="btn btn-solid" disabled={changingPassword}>
+            {changingPassword ? 'Changing...' : 'Change Password'}
+          </button>
         </div>
       </form>
     </section>

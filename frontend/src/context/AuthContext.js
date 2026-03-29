@@ -124,6 +124,14 @@ export function AuthProvider({ children }) {
     return me;
   }, [token, applyProfile]);
 
+  const changePassword = useCallback(async (payload) => {
+    if (!token) {
+      throw new Error('Not authenticated.');
+    }
+
+    return authApi.changePassword(token, payload);
+  }, [token]);
+
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(ROLE_KEY);
@@ -158,6 +166,7 @@ export function AuthProvider({ children }) {
     setAuth,
     refreshProfile,
     updateProfile,
+    changePassword,
     signup,
     logout
   }), [
@@ -175,6 +184,7 @@ export function AuthProvider({ children }) {
     setAuth,
     refreshProfile,
     updateProfile,
+    changePassword,
     signup,
     logout
   ]);
