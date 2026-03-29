@@ -490,6 +490,17 @@ th {
   gap: 12px;
 }
 
+.auth-inline-link {
+  margin: -4px 0 0;
+  text-align: right;
+  font-size: 0.9rem;
+}
+
+.auth-inline-link a {
+  color: var(--accent-dark);
+  font-weight: 700;
+}
+
 .auth-divider {
   display: flex;
   align-items: center;

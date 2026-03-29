@@ -7,6 +7,7 @@ import CatalogPage from './pages/CatalogPage';
 import ProductDetailPage from './pages/ProductDetailPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import TwoFactorMethodPage from './pages/TwoFactorMethodPage';
 import TwoFactorVerifyPage from './pages/TwoFactorVerifyPage';
 import TwoFactorAuthenticatorPage from './pages/TwoFactorAuthenticatorPage';
@@ -40,6 +41,7 @@ function App() {
                 <Route path="products/:id" element={<ProductDetailPage />} />
                 <Route path="login" element={<LoginPage />} />
                 <Route path="signup" element={<SignupPage />} />
+                <Route path="forgot-password" element={<ForgotPasswordPage />} />
                 <Route path="two-factor-method" element={<TwoFactorMethodPage />} />
                 <Route path="two-factor-verify" element={<TwoFactorVerifyPage />} />
                 <Route path="two-factor-authenticator" element={<TwoFactorAuthenticatorPage />} />
