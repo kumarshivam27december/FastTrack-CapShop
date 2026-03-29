@@ -99,5 +99,21 @@ namespace CapShop.AuthService.Controllers
             await _authAppService.ChangePasswordAsync(User, request, ct);
             return Ok(new { message = "Password changed successfully." });
         }
+
+        [HttpPost("me/authenticator/setup")]
+        [Authorize]
+        public async Task<IActionResult> SetupMyAuthenticator(CancellationToken ct)
+        {
+            var response = await _authAppService.SetupAuthenticatorForCurrentUserAsync(User, ct);
+            return Ok(response);
+        }
+
+        [HttpPost("me/authenticator/enable")]
+        [Authorize]
+        public async Task<IActionResult> EnableMyAuthenticator([FromBody] EnableAuthenticatorRequestDto request, CancellationToken ct)
+        {
+            var me = await _authAppService.EnableAuthenticatorForCurrentUserAsync(User, request, ct);
+            return Ok(me);
+        }
     }
 }

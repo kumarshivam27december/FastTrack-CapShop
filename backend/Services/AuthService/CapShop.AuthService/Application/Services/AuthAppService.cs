@@ -171,6 +171,56 @@ namespace CapShop.AuthService.Application.Services
             _logger.LogInformation("Password changed for {Email}", dbUser.Email);
         }
 
+        public async Task<SetupAuthenticatorResponseDto> SetupAuthenticatorForCurrentUserAsync(ClaimsPrincipal user, CancellationToken ct = default)
+        {
+            var dbUser = await GetCurrentUserAsync(user, ct);
+
+            if (dbUser.IsAuthenticatorEnabled && !string.IsNullOrWhiteSpace(dbUser.AuthenticatorSecret))
+                throw new InvalidOperationException("Authenticator is already enabled.");
+
+            var secretKey = _authenticatorService.GenerateSecretKey();
+            var qrCode = _authenticatorService.GenerateQrCode(dbUser.Email, secretKey);
+
+            dbUser.AuthenticatorSecret = secretKey;
+            dbUser.IsAuthenticatorEnabled = false;
+
+            await _repo.UpdateUserAsync(dbUser, ct);
+            await _repo.SaveChangesAsync(ct);
+
+            _logger.LogInformation("Authenticator setup prepared for {Email}", dbUser.Email);
+
+            return new SetupAuthenticatorResponseDto
+            {
+                SecretKey = secretKey,
+                QrCodeImage = qrCode,
+                Message = "Scan the QR code and verify with a 6-digit app code to enable authenticator login."
+            };
+        }
+
+        public async Task<MeResponseDto> EnableAuthenticatorForCurrentUserAsync(ClaimsPrincipal user, EnableAuthenticatorRequestDto request, CancellationToken ct = default)
+        {
+            var dbUser = await GetCurrentUserAsync(user, ct);
+            var code = request.Code?.Trim() ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(code) || code.Length != 6)
+                throw new InvalidOperationException("A valid 6-digit authenticator code is required.");
+
+            if (string.IsNullOrWhiteSpace(dbUser.AuthenticatorSecret))
+                throw new InvalidOperationException("Authenticator is not set up yet. Please generate a QR code first.");
+
+            if (!_authenticatorService.VerifyCode(dbUser.AuthenticatorSecret, code))
+                throw new UnauthorizedAccessException("Invalid authenticator code.");
+
+            dbUser.IsAuthenticatorEnabled = true;
+
+            await _repo.UpdateUserAsync(dbUser, ct);
+            await _repo.SaveChangesAsync(ct);
+
+            _logger.LogInformation("Authenticator enabled for {Email}", dbUser.Email);
+
+            return BuildMeResponse(dbUser);
+        }
+
         public async Task<TwoFactorAuthResponseDto> LoginStep1Async(LoginRequestDto request, CancellationToken ct = default)
         {
             if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
@@ -387,6 +437,7 @@ namespace CapShop.AuthService.Application.Services
                 Email = user.Email,
                 Phone = user.Phone,
                 AvatarUrl = user.AvatarUrl,
+                IsAuthenticatorEnabled = user.IsAuthenticatorEnabled,
                 Roles = user.UserRoles.Select(x => x.Role.Name).ToList()
             };
         }
