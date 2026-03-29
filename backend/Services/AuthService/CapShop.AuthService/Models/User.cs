@@ -16,6 +16,8 @@ namespace CapShop.AuthService.Models
 
         public string PasswordHash { get; set; } = string.Empty;
 
+        public bool IsGoogleAccount { get; set; } = false;
+
         public bool IsActive { get; set; } = true;
 
         public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;

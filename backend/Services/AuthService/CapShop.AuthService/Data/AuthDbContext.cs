@@ -25,6 +25,7 @@ namespace CapShop.AuthService.Data
                 entity.Property(x => x.Phone).HasMaxLength(20);
                 entity.Property(x => x.AvatarUrl);
                 entity.Property(x => x.PasswordHash).IsRequired();
+                entity.Property(x => x.IsGoogleAccount).HasDefaultValue(false);
                 entity.HasIndex(x => x.Email).IsUnique();
             });
 

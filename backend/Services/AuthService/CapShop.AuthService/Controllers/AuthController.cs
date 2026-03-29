@@ -36,6 +36,14 @@ namespace CapShop.AuthService.Controllers
             return Ok(response);
         }
 
+        [HttpPost("google-login")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequestDto request, CancellationToken ct)
+        {
+            var response = await _authAppService.GoogleLoginAsync(request, ct);
+            return Ok(response);
+        }
+
         [HttpPost("login-step1")]
         [AllowAnonymous]
         public async Task<IActionResult> LoginStep1([FromBody] LoginRequestDto request, CancellationToken ct)

@@ -106,6 +106,12 @@ BEGIN
     ALTER TABLE [Users] ADD [AvatarUrl] nvarchar(max) NULL;
 END");
 
+        await db.Database.ExecuteSqlRawAsync(@"
+    IF COL_LENGTH('Users', 'IsGoogleAccount') IS NULL
+    BEGIN
+        ALTER TABLE [Users] ADD [IsGoogleAccount] bit NOT NULL CONSTRAINT [DF_Users_IsGoogleAccount] DEFAULT(0);
+    END");
+
     await CapShop.AuthService.Data.AuthDbSeeder.SeedAsync(db);
     logger.LogInformation("Auth database startup checks completed.");
 }

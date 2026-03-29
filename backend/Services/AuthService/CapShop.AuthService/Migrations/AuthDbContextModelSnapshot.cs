@@ -76,6 +76,10 @@ namespace CapShop.AuthService.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsGoogleAccount")
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<bool>("IsAuthenticatorEnabled")
                         .HasColumnType("bit");
 

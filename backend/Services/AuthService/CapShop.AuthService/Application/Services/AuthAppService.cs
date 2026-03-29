@@ -4,6 +4,7 @@ using CapShop.AuthService.Infrastructure.Repositories;
 using CapShop.AuthService.Models;
 using CapShop.AuthService.Services;
 using CapShop.AuthService.Services.Interfaces;
+using Google.Apis.Auth;
 using System.Security.Claims;
 
 namespace CapShop.AuthService.Application.Services
@@ -62,6 +63,7 @@ namespace CapShop.AuthService.Application.Services
                 Email = email,
                 Phone = request.Phone.Trim(),
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
+                IsGoogleAccount = false,
                 IsActive = true,
                 IsSmsOtpEnabled = true,
                 IsEmailOtpEnabled = true
@@ -87,6 +89,9 @@ namespace CapShop.AuthService.Application.Services
             var email = request.Email.Trim().ToLowerInvariant();
             var user = await _repo.GetActiveUserByEmailWithRolesAsync(email, ct);
 
+            if (user is not null && user.IsGoogleAccount)
+                throw new UnauthorizedAccessException("This account uses Google sign-in. Set a password in profile first.");
+
             if (user is null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
                 throw new UnauthorizedAccessException("Invalid credentials.");
 
@@ -94,6 +99,81 @@ namespace CapShop.AuthService.Application.Services
             var token = _jwtTokenService.GenerateToken(user, roles);
 
             _logger.LogInformation("User login successful for {Email}", email);
+
+            return new AuthResponseDto
+            {
+                Token = token,
+                Role = roles.FirstOrDefault() ?? "Customer",
+                Email = user.Email
+            };
+        }
+
+        public async Task<AuthResponseDto> GoogleLoginAsync(GoogleLoginRequestDto request, CancellationToken ct = default)
+        {
+            var idToken = request.IdToken?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(idToken))
+                throw new InvalidOperationException("Google token is required.");
+
+            var googleClientId = _configuration["GoogleAuth:ClientId"];
+            if (string.IsNullOrWhiteSpace(googleClientId))
+                throw new InvalidOperationException("Google sign-in is not configured on the server.");
+
+            GoogleJsonWebSignature.Payload payload;
+            try
+            {
+                payload = await GoogleJsonWebSignature.ValidateAsync(idToken, new GoogleJsonWebSignature.ValidationSettings
+                {
+                    Audience = new[] { googleClientId }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Invalid Google ID token received");
+                throw new UnauthorizedAccessException("Invalid Google sign-in token.");
+            }
+
+            var email = payload.Email?.Trim().ToLowerInvariant() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(email))
+                throw new UnauthorizedAccessException("Google account email is missing.");
+
+            var user = await _repo.GetUserByEmailAsync(email, ct);
+            if (user is null)
+            {
+                var customerRole = await _repo.GetRoleByNameAsync("Customer", ct);
+                if (customerRole is null)
+                    throw new InvalidOperationException("Default role Customer not found.");
+
+                user = new User
+                {
+                    FullName = string.IsNullOrWhiteSpace(payload.Name) ? email : payload.Name.Trim(),
+                    Email = email,
+                    Phone = "0000000000",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString("N")),
+                    IsGoogleAccount = true,
+                    IsActive = true,
+                    IsSmsOtpEnabled = true,
+                    IsEmailOtpEnabled = true
+                };
+
+                user.UserRoles.Add(new UserRole
+                {
+                    User = user,
+                    Role = customerRole
+                });
+
+                await _repo.AddUserAsync(user, ct);
+                await _repo.SaveChangesAsync(ct);
+
+                _logger.LogInformation("Created new user via Google sign-in for {Email}", email);
+            }
+
+            if (!user.IsActive)
+                throw new UnauthorizedAccessException("User account is inactive.");
+
+            var roles = user.UserRoles.Select(x => x.Role.Name).ToList();
+            var token = _jwtTokenService.GenerateToken(user, roles);
+
+            _logger.LogInformation("User login successful via Google for {Email}", email);
 
             return new AuthResponseDto
             {
@@ -147,8 +227,9 @@ namespace CapShop.AuthService.Application.Services
 
             var currentPassword = request.CurrentPassword?.Trim() ?? string.Empty;
             var newPassword = request.NewPassword?.Trim() ?? string.Empty;
+            var requiresCurrentPassword = !dbUser.IsGoogleAccount;
 
-            if (string.IsNullOrWhiteSpace(currentPassword))
+            if (requiresCurrentPassword && string.IsNullOrWhiteSpace(currentPassword))
                 throw new InvalidOperationException("Current password is required.");
 
             if (string.IsNullOrWhiteSpace(newPassword))
@@ -157,13 +238,14 @@ namespace CapShop.AuthService.Application.Services
             if (newPassword.Length < 6)
                 throw new InvalidOperationException("New password must be at least 6 characters.");
 
-            if (!BCrypt.Net.BCrypt.Verify(currentPassword, dbUser.PasswordHash))
+            if (requiresCurrentPassword && !BCrypt.Net.BCrypt.Verify(currentPassword, dbUser.PasswordHash))
                 throw new UnauthorizedAccessException("Current password is incorrect.");
 
             if (BCrypt.Net.BCrypt.Verify(newPassword, dbUser.PasswordHash))
                 throw new InvalidOperationException("New password must be different from current password.");
 
             dbUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+            dbUser.IsGoogleAccount = false;
 
             await _repo.UpdateUserAsync(dbUser, ct);
             await _repo.SaveChangesAsync(ct);
@@ -228,6 +310,9 @@ namespace CapShop.AuthService.Application.Services
 
             var email = request.Email.Trim().ToLowerInvariant();
             var user = await _repo.GetActiveUserByEmailWithRolesAsync(email, ct);
+
+            if (user is not null && user.IsGoogleAccount)
+                throw new UnauthorizedAccessException("This account uses Google sign-in. Set a password in profile first.");
 
             if (user is null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
                 throw new UnauthorizedAccessException("Invalid credentials.");
@@ -437,6 +522,7 @@ namespace CapShop.AuthService.Application.Services
                 Email = user.Email,
                 Phone = user.Phone,
                 AvatarUrl = user.AvatarUrl,
+                IsGoogleAccount = user.IsGoogleAccount,
                 IsAuthenticatorEnabled = user.IsAuthenticatorEnabled,
                 Roles = user.UserRoles.Select(x => x.Role.Name).ToList()
             };

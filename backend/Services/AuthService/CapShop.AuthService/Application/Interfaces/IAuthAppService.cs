@@ -7,6 +7,7 @@ namespace CapShop.AuthService.Application.Interfaces
     {
         Task SignupAsync(SignupRequestDto request, CancellationToken ct = default);
         Task<AuthResponseDto> LoginAsync(LoginRequestDto request, CancellationToken ct = default);
+        Task<AuthResponseDto> GoogleLoginAsync(GoogleLoginRequestDto request, CancellationToken ct = default);
         Task<MeResponseDto> GetMeAsync(ClaimsPrincipal user, CancellationToken ct = default);
         Task<MeResponseDto> UpdateMeAsync(ClaimsPrincipal user, UpdateProfileRequestDto request, CancellationToken ct = default);
         Task ChangePasswordAsync(ClaimsPrincipal user, ChangePasswordRequestDto request, CancellationToken ct = default);
