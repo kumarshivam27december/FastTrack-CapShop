@@ -15,9 +15,18 @@ function NavItem({ to, children }) {
 }
 
 export default function Layout() {
-  const { isAuthenticated, isAdmin, email, logout } = useAuth();
+  const {
+    isAuthenticated,
+    isAdmin,
+    email,
+    fullName,
+    avatarUrl,
+    logout
+  } = useAuth();
   const { cart } = useCart();
   const { isDarkMode, toggleTheme } = useTheme();
+  const avatarSourceName = (fullName || email || '').trim();
+  const avatarInitial = (avatarSourceName || '?').charAt(0).toUpperCase();
 
   return (
     <div className="app-shell">
@@ -50,7 +59,18 @@ export default function Layout() {
             </button>
             {isAuthenticated ? (
               <>
-                <span className="user-chip">{email}</span>
+                <Link
+                  to="/profile"
+                  className="profile-avatar-link"
+                  aria-label="Open profile"
+                  title="Open profile"
+                >
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="Profile" className="profile-avatar profile-avatar-image" />
+                  ) : (
+                    <span className="profile-avatar" aria-hidden="true">{avatarInitial}</span>
+                  )}
+                </Link>
                 <button type="button" className="btn btn-outline" onClick={logout}>
                   Logout
                 </button>

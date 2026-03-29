@@ -8,5 +8,6 @@ export const authApi = {
   verifyOtp: (payload) => apiRequest('/auth/verify-otp', { method: 'POST', body: payload }),
   setupAuthenticator: (payload) => apiRequest('/auth/setup-authenticator', { method: 'POST', body: payload }),
   verifyAuthenticator: (payload) => apiRequest('/auth/verify-authenticator', { method: 'POST', body: payload }),
-  me: (token) => apiRequest('/auth/me', { token })
+  me: (token) => apiRequest('/auth/me', { token }),
+  updateMe: (token, payload) => apiRequest('/auth/me', { method: 'PUT', token, body: payload })
 };

@@ -15,6 +15,7 @@ import CheckoutPage from './pages/CheckoutPage';
 import OrdersPage from './pages/OrdersPage';
 import OrderDetailsPage from './pages/OrderDetailsPage';
 import CancelOrderConfirmPage from './pages/CancelOrderConfirmPage';
+import ProfilePage from './pages/ProfilePage';
 import AdminShell from './components/AdminShell';
 import AdminOverviewPage from './pages/AdminOverviewPage';
 import AdminOrdersPage from './pages/AdminOrdersPage';
@@ -79,6 +80,14 @@ function App() {
                   element={(
                     <ProtectedRoute>
                       <CancelOrderConfirmPage />
+                    </ProtectedRoute>
+                  )}
+                />
+                <Route
+                  path="profile"
+                  element={(
+                    <ProtectedRoute>
+                      <ProfilePage />
                     </ProtectedRoute>
                   )}
                 />

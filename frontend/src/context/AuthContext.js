@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { authApi } from '../api/authApi';
 
 const AuthContext = createContext(null);
@@ -6,13 +6,48 @@ const AuthContext = createContext(null);
 const TOKEN_KEY = 'capshop_token';
 const ROLE_KEY = 'capshop_role';
 const EMAIL_KEY = 'capshop_email';
+const FULL_NAME_KEY = 'capshop_full_name';
+const PHONE_KEY = 'capshop_phone';
+const AVATAR_URL_KEY = 'capshop_avatar_url';
 
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(localStorage.getItem(TOKEN_KEY));
   const [role, setRole] = useState(localStorage.getItem(ROLE_KEY));
   const [email, setEmail] = useState(localStorage.getItem(EMAIL_KEY));
+  const [fullName, setFullName] = useState(localStorage.getItem(FULL_NAME_KEY) || '');
+  const [phone, setPhone] = useState(localStorage.getItem(PHONE_KEY) || '');
+  const [avatarUrl, setAvatarUrl] = useState(localStorage.getItem(AVATAR_URL_KEY) || '');
   const [roles, setRoles] = useState([]);
   const [initialized, setInitialized] = useState(false);
+
+  const applyProfile = useCallback((profile) => {
+    const roleList = Array.isArray(profile?.roles) ? profile.roles : [];
+    const nextEmail = profile?.email || '';
+    const nextName = profile?.fullName || '';
+    const nextPhone = profile?.phone || '';
+    const nextAvatarUrl = profile?.avatarUrl || '';
+
+    setRoles(roleList);
+    setEmail(nextEmail);
+    setFullName(nextName);
+    setPhone(nextPhone);
+    setAvatarUrl(nextAvatarUrl);
+
+    localStorage.setItem(EMAIL_KEY, nextEmail);
+    localStorage.setItem(FULL_NAME_KEY, nextName);
+    localStorage.setItem(PHONE_KEY, nextPhone);
+
+    if (nextAvatarUrl) {
+      localStorage.setItem(AVATAR_URL_KEY, nextAvatarUrl);
+    } else {
+      localStorage.removeItem(AVATAR_URL_KEY);
+    }
+
+    if (roleList.length > 0) {
+      setRole(roleList[0]);
+      localStorage.setItem(ROLE_KEY, roleList[0]);
+    }
+  }, []);
 
   useEffect(() => {
     async function init() {
@@ -23,24 +58,20 @@ export function AuthProvider({ children }) {
 
       try {
         const me = await authApi.me(token);
-        const roleList = Array.isArray(me?.roles) ? me.roles : [];
-        setRoles(roleList);
-        if (me?.email) {
-          setEmail(me.email);
-          localStorage.setItem(EMAIL_KEY, me.email);
-        }
-
-        if (!role && roleList.length > 0) {
-          setRole(roleList[0]);
-          localStorage.setItem(ROLE_KEY, roleList[0]);
-        }
+        applyProfile(me);
       } catch {
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(ROLE_KEY);
         localStorage.removeItem(EMAIL_KEY);
+        localStorage.removeItem(FULL_NAME_KEY);
+        localStorage.removeItem(PHONE_KEY);
+        localStorage.removeItem(AVATAR_URL_KEY);
         setToken(null);
         setRole(null);
         setEmail(null);
+        setFullName('');
+        setPhone('');
+        setAvatarUrl('');
         setRoles([]);
       } finally {
         setInitialized(true);
@@ -48,71 +79,105 @@ export function AuthProvider({ children }) {
     }
 
     init();
-  }, [token, role]);
+  }, [token, applyProfile]);
 
-  async function login(credentials) {
+  const login = useCallback(async (credentials) => {
     const response = await authApi.login(credentials);
     setToken(response.token);
-    setRole(response.role);
-    setEmail(response.email);
     localStorage.setItem(TOKEN_KEY, response.token);
-    localStorage.setItem(ROLE_KEY, response.role);
-    localStorage.setItem(EMAIL_KEY, response.email);
 
     const me = await authApi.me(response.token);
-    setRoles(Array.isArray(me?.roles) ? me.roles : []);
+    applyProfile(me);
 
     return response;
-  }
+  }, [applyProfile]);
 
-  async function signup(payload) {
+  const signup = useCallback(async (payload) => {
     await authApi.signup(payload);
-  }
+  }, []);
 
-  async function setAuth(authData) {
+  const setAuth = useCallback(async (authData) => {
     // Direct method to set auth after 2FA verification
     setToken(authData.token);
-    setRole(authData.role);
-    setEmail(authData.email);
     localStorage.setItem(TOKEN_KEY, authData.token);
-    localStorage.setItem(ROLE_KEY, authData.role);
-    localStorage.setItem(EMAIL_KEY, authData.email);
 
     if (authData.token) {
       const me = await authApi.me(authData.token);
-      setRoles(Array.isArray(me?.roles) ? me.roles : []);
+      applyProfile(me);
     }
-  }
+  }, [applyProfile]);
 
-  function logout() {
+  const refreshProfile = useCallback(async () => {
+    if (!token) return null;
+    const me = await authApi.me(token);
+    applyProfile(me);
+    return me;
+  }, [token, applyProfile]);
+
+  const updateProfile = useCallback(async (payload) => {
+    if (!token) {
+      throw new Error('Not authenticated.');
+    }
+
+    const me = await authApi.updateMe(token, payload);
+    applyProfile(me);
+    return me;
+  }, [token, applyProfile]);
+
+  const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(ROLE_KEY);
     localStorage.removeItem(EMAIL_KEY);
+    localStorage.removeItem(FULL_NAME_KEY);
+    localStorage.removeItem(PHONE_KEY);
+    localStorage.removeItem(AVATAR_URL_KEY);
     setToken(null);
     setRole(null);
     setEmail(null);
+    setFullName('');
+    setPhone('');
+    setAvatarUrl('');
     setRoles([]);
-  }
+  }, []);
 
   const isAuthenticated = Boolean(token);
   const isAdmin = role === 'Admin' || roles.includes('Admin');
 
-  const value = useMemo(
-    () => ({
-      token,
-      role,
-      email,
-      roles,
-      initialized,
-      isAuthenticated,
-      isAdmin,
-      login,
-      setAuth,
-      signup,
-      logout
-    }),
-    [token, role, email, roles, initialized, isAuthenticated, isAdmin]
-  );
+  const value = useMemo(() => ({
+    token,
+    role,
+    email,
+    fullName,
+    phone,
+    avatarUrl,
+    roles,
+    initialized,
+    isAuthenticated,
+    isAdmin,
+    login,
+    setAuth,
+    refreshProfile,
+    updateProfile,
+    signup,
+    logout
+  }), [
+    token,
+    role,
+    email,
+    fullName,
+    phone,
+    avatarUrl,
+    roles,
+    initialized,
+    isAuthenticated,
+    isAdmin,
+    login,
+    setAuth,
+    refreshProfile,
+    updateProfile,
+    signup,
+    logout
+  ]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
