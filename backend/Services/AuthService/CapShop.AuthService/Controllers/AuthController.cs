@@ -91,5 +91,13 @@ namespace CapShop.AuthService.Controllers
             var me = await _authAppService.UpdateMeAsync(User, request, ct);
             return Ok(me);
         }
+
+        [HttpPut("change-password")]
+        [Authorize]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequestDto request, CancellationToken ct)
+        {
+            await _authAppService.ChangePasswordAsync(User, request, ct);
+            return Ok(new { message = "Password changed successfully." });
+        }
     }
 }

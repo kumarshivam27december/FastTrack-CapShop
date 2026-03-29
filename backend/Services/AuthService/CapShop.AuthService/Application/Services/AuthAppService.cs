@@ -141,6 +141,36 @@ namespace CapShop.AuthService.Application.Services
             return BuildMeResponse(dbUser);
         }
 
+        public async Task ChangePasswordAsync(ClaimsPrincipal user, ChangePasswordRequestDto request, CancellationToken ct = default)
+        {
+            var dbUser = await GetCurrentUserAsync(user, ct);
+
+            var currentPassword = request.CurrentPassword?.Trim() ?? string.Empty;
+            var newPassword = request.NewPassword?.Trim() ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(currentPassword))
+                throw new InvalidOperationException("Current password is required.");
+
+            if (string.IsNullOrWhiteSpace(newPassword))
+                throw new InvalidOperationException("New password is required.");
+
+            if (newPassword.Length < 6)
+                throw new InvalidOperationException("New password must be at least 6 characters.");
+
+            if (!BCrypt.Net.BCrypt.Verify(currentPassword, dbUser.PasswordHash))
+                throw new UnauthorizedAccessException("Current password is incorrect.");
+
+            if (BCrypt.Net.BCrypt.Verify(newPassword, dbUser.PasswordHash))
+                throw new InvalidOperationException("New password must be different from current password.");
+
+            dbUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+
+            await _repo.UpdateUserAsync(dbUser, ct);
+            await _repo.SaveChangesAsync(ct);
+
+            _logger.LogInformation("Password changed for {Email}", dbUser.Email);
+        }
+
         public async Task<TwoFactorAuthResponseDto> LoginStep1Async(LoginRequestDto request, CancellationToken ct = default)
         {
             if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
