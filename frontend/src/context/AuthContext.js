@@ -9,6 +9,7 @@ const EMAIL_KEY = 'capshop_email';
 const FULL_NAME_KEY = 'capshop_full_name';
 const PHONE_KEY = 'capshop_phone';
 const AVATAR_URL_KEY = 'capshop_avatar_url';
+const AUTH_APP_ENABLED_KEY = 'capshop_auth_app_enabled';
 
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(localStorage.getItem(TOKEN_KEY));
@@ -17,6 +18,9 @@ export function AuthProvider({ children }) {
   const [fullName, setFullName] = useState(localStorage.getItem(FULL_NAME_KEY) || '');
   const [phone, setPhone] = useState(localStorage.getItem(PHONE_KEY) || '');
   const [avatarUrl, setAvatarUrl] = useState(localStorage.getItem(AVATAR_URL_KEY) || '');
+  const [isAuthenticatorEnabled, setIsAuthenticatorEnabled] = useState(
+    localStorage.getItem(AUTH_APP_ENABLED_KEY) === 'true'
+  );
   const [roles, setRoles] = useState([]);
   const [initialized, setInitialized] = useState(false);
 
@@ -26,16 +30,19 @@ export function AuthProvider({ children }) {
     const nextName = profile?.fullName || '';
     const nextPhone = profile?.phone || '';
     const nextAvatarUrl = profile?.avatarUrl || '';
+    const nextAuthenticatorEnabled = Boolean(profile?.isAuthenticatorEnabled);
 
     setRoles(roleList);
     setEmail(nextEmail);
     setFullName(nextName);
     setPhone(nextPhone);
     setAvatarUrl(nextAvatarUrl);
+    setIsAuthenticatorEnabled(nextAuthenticatorEnabled);
 
     localStorage.setItem(EMAIL_KEY, nextEmail);
     localStorage.setItem(FULL_NAME_KEY, nextName);
     localStorage.setItem(PHONE_KEY, nextPhone);
+    localStorage.setItem(AUTH_APP_ENABLED_KEY, String(nextAuthenticatorEnabled));
 
     if (nextAvatarUrl) {
       localStorage.setItem(AVATAR_URL_KEY, nextAvatarUrl);
@@ -66,12 +73,14 @@ export function AuthProvider({ children }) {
         localStorage.removeItem(FULL_NAME_KEY);
         localStorage.removeItem(PHONE_KEY);
         localStorage.removeItem(AVATAR_URL_KEY);
+        localStorage.removeItem(AUTH_APP_ENABLED_KEY);
         setToken(null);
         setRole(null);
         setEmail(null);
         setFullName('');
         setPhone('');
         setAvatarUrl('');
+        setIsAuthenticatorEnabled(false);
         setRoles([]);
       } finally {
         setInitialized(true);
@@ -132,6 +141,24 @@ export function AuthProvider({ children }) {
     return authApi.changePassword(token, payload);
   }, [token]);
 
+  const setupMyAuthenticator = useCallback(async () => {
+    if (!token) {
+      throw new Error('Not authenticated.');
+    }
+
+    return authApi.setupMyAuthenticator(token);
+  }, [token]);
+
+  const enableMyAuthenticator = useCallback(async (payload) => {
+    if (!token) {
+      throw new Error('Not authenticated.');
+    }
+
+    const me = await authApi.enableMyAuthenticator(token, payload);
+    applyProfile(me);
+    return me;
+  }, [token, applyProfile]);
+
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(ROLE_KEY);
@@ -139,12 +166,14 @@ export function AuthProvider({ children }) {
     localStorage.removeItem(FULL_NAME_KEY);
     localStorage.removeItem(PHONE_KEY);
     localStorage.removeItem(AVATAR_URL_KEY);
+    localStorage.removeItem(AUTH_APP_ENABLED_KEY);
     setToken(null);
     setRole(null);
     setEmail(null);
     setFullName('');
     setPhone('');
     setAvatarUrl('');
+    setIsAuthenticatorEnabled(false);
     setRoles([]);
   }, []);
 
@@ -158,6 +187,7 @@ export function AuthProvider({ children }) {
     fullName,
     phone,
     avatarUrl,
+    isAuthenticatorEnabled,
     roles,
     initialized,
     isAuthenticated,
@@ -167,6 +197,8 @@ export function AuthProvider({ children }) {
     refreshProfile,
     updateProfile,
     changePassword,
+    setupMyAuthenticator,
+    enableMyAuthenticator,
     signup,
     logout
   }), [
@@ -176,6 +208,7 @@ export function AuthProvider({ children }) {
     fullName,
     phone,
     avatarUrl,
+    isAuthenticatorEnabled,
     roles,
     initialized,
     isAuthenticated,
@@ -185,6 +218,8 @@ export function AuthProvider({ children }) {
     refreshProfile,
     updateProfile,
     changePassword,
+    setupMyAuthenticator,
+    enableMyAuthenticator,
     signup,
     logout
   ]);

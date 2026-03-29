@@ -10,5 +10,7 @@ export const authApi = {
   verifyAuthenticator: (payload) => apiRequest('/auth/verify-authenticator', { method: 'POST', body: payload }),
   me: (token) => apiRequest('/auth/me', { token }),
   updateMe: (token, payload) => apiRequest('/auth/me', { method: 'PUT', token, body: payload }),
-  changePassword: (token, payload) => apiRequest('/auth/change-password', { method: 'PUT', token, body: payload })
+  changePassword: (token, payload) => apiRequest('/auth/change-password', { method: 'PUT', token, body: payload }),
+  setupMyAuthenticator: (token) => apiRequest('/auth/me/authenticator/setup', { method: 'POST', token }),
+  enableMyAuthenticator: (token, payload) => apiRequest('/auth/me/authenticator/enable', { method: 'POST', token, body: payload })
 };

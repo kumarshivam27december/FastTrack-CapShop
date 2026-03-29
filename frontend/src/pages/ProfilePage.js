@@ -23,6 +23,9 @@ export default function ProfilePage() {
     avatarUrl,
     updateProfile,
     changePassword,
+    isAuthenticatorEnabled,
+    setupMyAuthenticator,
+    enableMyAuthenticator,
     refreshProfile
   } = useAuth();
 
@@ -43,6 +46,11 @@ export default function ProfilePage() {
   });
   const [passwordMessage, setPasswordMessage] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [authenticatorSetup, setAuthenticatorSetup] = useState(null);
+  const [authenticatorCode, setAuthenticatorCode] = useState('');
+  const [authenticatorBusy, setAuthenticatorBusy] = useState(false);
+  const [authenticatorError, setAuthenticatorError] = useState('');
+  const [authenticatorMessage, setAuthenticatorMessage] = useState('');
 
   useEffect(() => {
     let isMounted = true;
@@ -135,6 +143,46 @@ export default function ProfilePage() {
       setPasswordError(err.message || 'Could not change password. Please try again.');
     } finally {
       setChangingPassword(false);
+    }
+  }
+
+  async function handleSetupAuthenticator() {
+    setAuthenticatorBusy(true);
+    setAuthenticatorError('');
+    setAuthenticatorMessage('');
+
+    try {
+      const response = await setupMyAuthenticator();
+      setAuthenticatorSetup(response);
+      setAuthenticatorMessage('QR generated. Scan it in Microsoft Authenticator and verify with a 6-digit code.');
+    } catch (err) {
+      setAuthenticatorError(err.message || 'Could not generate authenticator QR code.');
+    } finally {
+      setAuthenticatorBusy(false);
+    }
+  }
+
+  async function handleEnableAuthenticator(event) {
+    event.preventDefault();
+    setAuthenticatorError('');
+    setAuthenticatorMessage('');
+
+    const code = authenticatorCode.trim();
+    if (!code || code.length !== 6) {
+      setAuthenticatorError('Enter a valid 6-digit authenticator code.');
+      return;
+    }
+
+    setAuthenticatorBusy(true);
+    try {
+      await enableMyAuthenticator({ code });
+      setAuthenticatorCode('');
+      setAuthenticatorSetup(null);
+      setAuthenticatorMessage('Authenticator enabled. You will now see Authenticator as a login OTP method.');
+    } catch (err) {
+      setAuthenticatorError(err.message || 'Could not enable authenticator.');
+    } finally {
+      setAuthenticatorBusy(false);
     }
   }
 
@@ -284,6 +332,62 @@ export default function ProfilePage() {
           </button>
         </div>
       </form>
+
+      <section className="card profile-card section">
+        <div className="section-head">
+          <h2>Authenticator App (QR)</h2>
+        </div>
+
+        {isAuthenticatorEnabled ? (
+          <p className="message success">Authenticator is enabled for your account.</p>
+        ) : (
+          <p className="muted">Enable Microsoft Authenticator to use app-based OTP at login.</p>
+        )}
+
+        {authenticatorError && <p className="message error">{authenticatorError}</p>}
+        {authenticatorMessage && <p className="message success">{authenticatorMessage}</p>}
+
+        {!isAuthenticatorEnabled && (
+          <div className="stack-actions">
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={handleSetupAuthenticator}
+              disabled={authenticatorBusy}
+            >
+              {authenticatorBusy ? 'Preparing QR...' : 'Generate QR Code'}
+            </button>
+
+            {authenticatorSetup?.qrCodeImage && (
+              <form className="profile-authenticator-box" onSubmit={handleEnableAuthenticator}>
+                <img
+                  src={authenticatorSetup.qrCodeImage}
+                  alt="Authenticator QR code"
+                  className="profile-authenticator-qr"
+                />
+                <p className="hint">If scanning fails, manually enter this key in Microsoft Authenticator:</p>
+                <p className="profile-authenticator-secret">{authenticatorSetup.secretKey}</p>
+
+                <label>
+                  6-digit app code
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength="6"
+                    value={authenticatorCode}
+                    onChange={(event) => setAuthenticatorCode(event.target.value.replace(/\D/g, ''))}
+                    placeholder="000000"
+                  />
+                </label>
+
+                <button type="submit" className="btn btn-solid" disabled={authenticatorBusy || authenticatorCode.length !== 6}>
+                  {authenticatorBusy ? 'Enabling...' : 'Enable Authenticator'}
+                </button>
+              </form>
+            )}
+          </div>
+        )}
+      </section>
     </section>
   );
 }

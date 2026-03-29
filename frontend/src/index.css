@@ -540,6 +540,29 @@ th {
   margin: 4px 0;
 }
 
+.profile-authenticator-box {
+  margin-top: 8px;
+  display: grid;
+  gap: 10px;
+  max-width: 360px;
+}
+
+.profile-authenticator-qr {
+  width: 220px;
+  height: 220px;
+  border-radius: 12px;
+  border: 1px solid var(--card-border);
+  background: #ffffff;
+}
+
+.profile-authenticator-secret {
+  margin: 0;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+  word-break: break-all;
+}
+
 .checkout-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
