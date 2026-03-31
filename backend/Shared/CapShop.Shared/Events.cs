@@ -56,7 +56,17 @@ public interface OrderPlacedEvent
     string UserEmail { get; }
     string OrderNumber { get; }
     decimal TotalAmount { get; }
+    IEnumerable<OrderPlacedItemEvent> Items { get; }
     DateTime OccurredAtUtc { get; }
+}
+
+public interface OrderPlacedItemEvent
+{
+    string Title { get; }
+    string Description { get; }
+    decimal Price { get; }
+    int Quantity { get; }
+    decimal Amount { get; }
 }
 
 /// <summary>

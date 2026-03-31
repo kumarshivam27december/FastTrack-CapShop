@@ -24,6 +24,33 @@ export default function CheckoutPage() {
   const [orderInfo, setOrderInfo] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [paymentRequested, setPaymentRequested] = useState(false);
+
+  async function placeOrderWithRetry(orderId, maxAttempts = 90, delayMs = 1000) {
+    let lastError = null;
+
+    for (let i = 0; i < maxAttempts; i += 1) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        return await orderApi.placeOrder(token, orderId);
+      } catch (err) {
+        lastError = err;
+        const msg = String(err?.message || '').toLowerCase();
+        if (!msg.includes('must be paid before placing')) {
+          throw err;
+        }
+
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+
+    if (lastError) {
+      throw lastError;
+    }
+
+    throw new Error('Payment is still processing. Please wait a few seconds and try again.');
+  }
 
   const canStart = useMemo(() => {
     return Object.values(address).every((value) => String(value).trim().length > 0);
@@ -61,6 +88,7 @@ export default function CheckoutPage() {
 
     setBusy(true);
     setError('');
+    setPaymentRequested(true);
 
     try {
       const response = await orderApi.simulatePayment(token, {
@@ -69,26 +97,28 @@ export default function CheckoutPage() {
         simulateSuccess
       });
 
-      // Payment is now async through RabbitMQ. Poll order status briefly for completion.
-      let paid = false;
-      for (let i = 0; i < 15; i += 1) {
-        // eslint-disable-next-line no-await-in-loop
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        // eslint-disable-next-line no-await-in-loop
-        const order = await orderApi.getOrderById(token, checkoutInfo.orderId);
-        if (order?.status === 'Paid') {
-          paid = true;
-          break;
-        }
-      }
-
       setPaymentInfo({
         ...response,
-        success: paid,
-        message: paid
-          ? 'Payment successful'
-          : 'Payment is still processing. Please wait a few seconds and try again.'
+        success: true,
+        message: 'Payment initiated. Finalizing your order...'
       });
+
+      try {
+        const placed = await placeOrderWithRetry(checkoutInfo.orderId);
+        setPaymentInfo({
+          ...response,
+          success: true,
+          message: 'Payment successful'
+        });
+        setOrderInfo(placed);
+        await refreshCart();
+      } catch {
+        setPaymentInfo({
+          ...response,
+          success: true,
+          message: 'Payment is still processing. Please use Place Order. No need to simulate again.'
+        });
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -103,7 +133,7 @@ export default function CheckoutPage() {
     setError('');
 
     try {
-      const response = await orderApi.placeOrder(token, checkoutInfo.orderId);
+      const response = await placeOrderWithRetry(checkoutInfo.orderId);
       setOrderInfo(response);
       await refreshCart();
     } catch (err) {
@@ -181,7 +211,7 @@ export default function CheckoutPage() {
                 type="button"
                 className="btn btn-solid"
                 onClick={handlePlaceOrder}
-                disabled={!paymentInfo?.success || busy}
+                disabled={!paymentRequested || busy || !!orderInfo}
               >
                 Place Order
               </button>

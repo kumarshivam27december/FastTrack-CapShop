@@ -5,6 +5,8 @@ using CapShop.OrderService.DTOs.Checkout;
 using CapShop.OrderService.DTOs.Order;
 using CapShop.OrderService.DTOs.Payment;
 using Microsoft.AspNetCore.Authorization;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 namespace CapShop.OrderService.Controllers
 {
@@ -34,6 +36,9 @@ namespace CapShop.OrderService.Controllers
         private string? GetUserEmail()
         {
             return User.FindFirst("email")?.Value
+                ?? User.FindFirst(ClaimTypes.Email)?.Value
+                ?? User.FindFirst(ClaimTypes.Name)?.Value
+                ?? User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
                 ?? User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress")?.Value;
         }
 

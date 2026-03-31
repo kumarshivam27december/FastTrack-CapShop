@@ -51,7 +51,7 @@ builder.Services.AddScoped<IPaymentAppService, PaymentAppService>();
 
 builder.Services.AddMassTransit(x =>
 {
-    x.SetKebabCaseEndpointNameFormatter();
+    x.SetEndpointNameFormatter(new KebabCaseEndpointNameFormatter("payment", false));
     x.AddConsumer<OrderCreatedEventConsumer>();
 
     x.AddConfigureEndpointsCallback((context, _, cfg) =>

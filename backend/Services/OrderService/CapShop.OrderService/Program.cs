@@ -52,7 +52,7 @@ builder.Services.AddScoped<IOrderAppService, OrderAppService>();
 
 builder.Services.AddMassTransit(x =>
 {
-    x.SetKebabCaseEndpointNameFormatter();
+    x.SetEndpointNameFormatter(new KebabCaseEndpointNameFormatter("order", false));
     x.AddConsumer<PaymentSucceededEventConsumer>();
     x.AddConsumer<PaymentFailedEventConsumer>();
 

@@ -9,16 +9,20 @@ namespace CapShop.OrderService.Consumers;
 public class PaymentSucceededEventConsumer : IConsumer<PaymentSucceededEvent>
 {
     private readonly OrderDbContext _db;
+    private readonly IPublishEndpoint _publishEndpoint;
 
-    public PaymentSucceededEventConsumer(OrderDbContext db)
+    public PaymentSucceededEventConsumer(OrderDbContext db, IPublishEndpoint publishEndpoint)
     {
         _db = db;
+        _publishEndpoint = publishEndpoint;
     }
 
     public async Task Consume(ConsumeContext<PaymentSucceededEvent> context)
     {
         var msg = context.Message;
-        var order = await _db.Orders.FirstOrDefaultAsync(x => x.Id == msg.OrderId);
+        var order = await _db.Orders
+            .Include(x => x.Items)
+            .FirstOrDefaultAsync(x => x.Id == msg.OrderId);
         if (order is null)
         {
             return;
@@ -43,5 +47,24 @@ public class PaymentSucceededEventConsumer : IConsumer<PaymentSucceededEvent>
         });
 
         await _db.SaveChangesAsync();
+
+        await _publishEndpoint.Publish<OrderPlacedEvent>(new
+        {
+            CorrelationId = msg.CorrelationId,
+            OrderId = order.Id,
+            UserId = order.UserId,
+            UserEmail = msg.UserEmail,
+            OrderNumber = order.OrderNumber,
+            TotalAmount = order.TotalAmount,
+            Items = order.Items.Select(i => new
+            {
+                Title = i.ProductName,
+                Description = $"Product ID: {i.ProductId}",
+                Price = i.UnitPrice,
+                Quantity = i.Quantity,
+                Amount = i.TotalPrice
+            }).ToList(),
+            OccurredAtUtc = DateTime.UtcNow
+        });
     }
 }

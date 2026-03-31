@@ -1,7 +1,9 @@
 using System.Text;
 using CapShop.NotificationService.Application.Interfaces;
 using CapShop.NotificationService.Application.Services;
+using CapShop.NotificationService.Configuration;
 using CapShop.NotificationService.Data;
+using CapShop.NotificationService.Infrastructure.Email;
 using CapShop.NotificationService.Infrastructure.Repositories;
 using CapShop.NotificationService.Middleware;
 using CapShop.NotificationService.Consumers;
@@ -46,12 +48,14 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddDbContext<NotificationDbContext>(opts =>
     opts.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Email"));
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<INotificationAppService, NotificationAppService>();
+builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 
 builder.Services.AddMassTransit(x =>
 {
-    x.SetKebabCaseEndpointNameFormatter();
+    x.SetEndpointNameFormatter(new KebabCaseEndpointNameFormatter("notification", false));
     x.AddConsumer<PaymentSucceededEventConsumer>();
     x.AddConsumer<PaymentFailedEventConsumer>();
     x.AddConsumer<OrderPlacedEventConsumer>();

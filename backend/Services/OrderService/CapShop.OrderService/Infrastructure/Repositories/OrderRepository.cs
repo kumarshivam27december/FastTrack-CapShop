@@ -299,6 +299,14 @@ namespace CapShop.OrderService.Infrastructure.Repositories
                 UserEmail = userEmail ?? string.Empty,
                 OrderNumber = order.OrderNumber,
                 TotalAmount = order.TotalAmount,
+                Items = order.Items.Select(i => new
+                {
+                    Title = i.ProductName,
+                    Description = $"Product ID: {i.ProductId}",
+                    Price = i.UnitPrice,
+                    Quantity = i.Quantity,
+                    Amount = i.TotalPrice
+                }).ToList(),
                 OccurredAtUtc = DateTime.UtcNow
             });
 
