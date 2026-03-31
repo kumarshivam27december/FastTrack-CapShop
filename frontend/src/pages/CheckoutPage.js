@@ -68,7 +68,27 @@ export default function CheckoutPage() {
         paymentMethod,
         simulateSuccess
       });
-      setPaymentInfo(response);
+
+      // Payment is now async through RabbitMQ. Poll order status briefly for completion.
+      let paid = false;
+      for (let i = 0; i < 15; i += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        // eslint-disable-next-line no-await-in-loop
+        const order = await orderApi.getOrderById(token, checkoutInfo.orderId);
+        if (order?.status === 'Paid') {
+          paid = true;
+          break;
+        }
+      }
+
+      setPaymentInfo({
+        ...response,
+        success: paid,
+        message: paid
+          ? 'Payment successful'
+          : 'Payment is still processing. Please wait a few seconds and try again.'
+      });
     } catch (err) {
       setError(err.message);
     } finally {
