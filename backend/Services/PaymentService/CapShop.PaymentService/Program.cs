@@ -1,15 +1,15 @@
-using CapShop.OrderService.Data;
-using CapShop.OrderService.Application.Interfaces;
-using CapShop.OrderService.Application.Services;
-using CapShop.OrderService.Infrastructure.Repositories;
+using System.Text;
+using CapShop.PaymentService.Application.Interfaces;
+using CapShop.PaymentService.Application.Services;
+using CapShop.PaymentService.Data;
+using CapShop.PaymentService.Infrastructure.Repositories;
+using CapShop.PaymentService.Middleware;
+using CapShop.PaymentService.Consumers;
+using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using System.Text;
-using CapShop.OrderService.Middleware;
-using CapShop.OrderService.Consumers;
-using MassTransit;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,18 +43,16 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-builder.Services.AddDbContext<OrderDbContext>(opts =>
+builder.Services.AddDbContext<PaymentDbContext>(opts =>
     opts.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddHttpClient();
-builder.Services.AddScoped<IOrderRepository, OrderRepository>();
-builder.Services.AddScoped<IOrderAppService, OrderAppService>();
+builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
+builder.Services.AddScoped<IPaymentAppService, PaymentAppService>();
 
 builder.Services.AddMassTransit(x =>
 {
     x.SetKebabCaseEndpointNameFormatter();
-    x.AddConsumer<PaymentSucceededEventConsumer>();
-    x.AddConsumer<PaymentFailedEventConsumer>();
+    x.AddConsumer<OrderCreatedEventConsumer>();
 
     x.AddConfigureEndpointsCallback((context, _, cfg) =>
     {
@@ -74,7 +72,7 @@ builder.Services.AddMassTransit(x =>
     });
 });
 
-var secret = builder.Configuration.GetSection("JwtSettings")["SecretKey"];
+var secret = builder.Configuration["JwtSettings:SecretKey"];
 if (string.IsNullOrWhiteSpace(secret))
 {
     throw new InvalidOperationException("JwtSettings:SecretKey is missing in configuration.");
@@ -89,8 +87,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateAudience = true,
             ValidateIssuerSigningKey = true,
             ValidateLifetime = true,
-            ValidIssuer = "CapShop.AuthService",
-            ValidAudience = "CapShop.Client",
+            ValidIssuer = builder.Configuration["JwtSettings:Issuer"] ?? "CapShop.AuthService",
+            ValidAudience = builder.Configuration["JwtSettings:Audience"] ?? "CapShop.Client",
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
             ClockSkew = TimeSpan.FromMinutes(1)
         };
@@ -108,16 +106,14 @@ if (app.Environment.IsDevelopment())
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
 app.UseHttpsRedirection();
-
-
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<OrderDbContext>();
-    await CapShop.OrderService.Data.OrderDbSeeder.SeedAsync(db);
+    var db = scope.ServiceProvider.GetRequiredService<PaymentDbContext>();
+    await db.Database.EnsureCreatedAsync();
 }
 
 app.Run();

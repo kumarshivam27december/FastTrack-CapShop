@@ -8,6 +8,8 @@ using CapShop.OrderService.Models;
 using CapShop.OrderService.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using System.Net.Http.Json;
+using CapShop.Shared.Events;
+using MassTransit;
 
 namespace CapShop.OrderService.Infrastructure.Repositories
 {
@@ -15,12 +17,14 @@ namespace CapShop.OrderService.Infrastructure.Repositories
     {
         private readonly OrderDbContext _db;
         private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IPublishEndpoint _publishEndpoint;
         private readonly string _catalogBaseUrl;
 
-        public OrderRepository(OrderDbContext db, IHttpClientFactory httpClientFactory, IConfiguration configuration)
+        public OrderRepository(OrderDbContext db, IHttpClientFactory httpClientFactory, IConfiguration configuration, IPublishEndpoint publishEndpoint)
         {
             _db = db;
             _httpClientFactory = httpClientFactory;
+            _publishEndpoint = publishEndpoint;
             _catalogBaseUrl = configuration["CatalogServiceUrl"] ?? "http://localhost:5014";
         }
 
@@ -232,7 +236,7 @@ namespace CapShop.OrderService.Infrastructure.Repositories
             };
         }
 
-        public async Task<PaymentResponseDto> SimulatePaymentAsync(int userId, PaymentSimulateRequestDto request)
+        public async Task<PaymentResponseDto> SimulatePaymentAsync(int userId, string? userEmail, PaymentSimulateRequestDto request)
         {
             var order = await _db.Orders.FirstOrDefaultAsync(o => o.Id == request.OrderId && o.UserId == userId);
             if (order is null) throw new InvalidOperationException("Order not found.");
@@ -240,44 +244,44 @@ namespace CapShop.OrderService.Infrastructure.Repositories
             if (order.Status != OrderStatus.CheckoutStarted && order.Status != OrderStatus.PaymentPending)
                 throw new InvalidOperationException("Payment can only be simulated for checkout-started orders.");
 
-            var transactionId = Guid.NewGuid().ToString()[..12];
+            var oldStatus = order.Status;
+            order.Status = OrderStatus.PaymentPending;
+            order.PaymentMethod = request.PaymentMethod;
+            order.UpdatedAtUtc = DateTime.UtcNow;
 
-            if (request.SimulateSuccess)
+            _db.Orders.Update(order);
+            _db.OrderStatusHistories.Add(new OrderStatusHistory
             {
-                order.Status = OrderStatus.Paid;
-                order.PaymentMethod = request.PaymentMethod;
-                order.PaymentTransactionId = transactionId;
-                order.UpdatedAtUtc = DateTime.UtcNow;
+                OrderId = order.Id,
+                FromStatus = oldStatus,
+                ToStatus = OrderStatus.PaymentPending,
+                Notes = $"Payment initiated via {request.PaymentMethod}"
+            });
+            await _db.SaveChangesAsync();
 
-                _db.Orders.Update(order);
-                _db.OrderStatusHistories.Add(new OrderStatusHistory
-                {
-                    OrderId = order.Id,
-                    FromStatus = OrderStatus.CheckoutStarted,
-                    ToStatus = OrderStatus.Paid,
-                    Notes = $"Payment received via {request.PaymentMethod}"
-                });
-                await _db.SaveChangesAsync();
-
-                return new PaymentResponseDto
-                {
-                    OrderId = order.Id,
-                    TransactionId = transactionId,
-                    Success = true,
-                    Message = "Payment successful"
-                };
-            }
+            await _publishEndpoint.Publish<OrderCreatedEvent>(new
+            {
+                CorrelationId = Guid.NewGuid(),
+                OrderId = order.Id,
+                UserId = order.UserId,
+                UserEmail = userEmail ?? string.Empty,
+                TotalAmount = order.TotalAmount,
+                OrderNumber = order.OrderNumber,
+                PaymentMethod = request.PaymentMethod,
+                SimulateSuccess = request.SimulateSuccess,
+                OccurredAtUtc = DateTime.UtcNow
+            });
 
             return new PaymentResponseDto
             {
                 OrderId = order.Id,
-                TransactionId = transactionId,
-                Success = false,
-                Message = "Payment failed"
+                TransactionId = string.Empty,
+                Success = true,
+                Message = "Payment request accepted and sent to PaymentService."
             };
         }
 
-        public async Task<CheckoutResponseDto> PlaceOrderAsync(int userId, int orderId)
+        public async Task<CheckoutResponseDto> PlaceOrderAsync(int userId, string? userEmail, int orderId)
         {
             var order = await _db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == orderId && o.UserId == userId);
             if (order is null) throw new InvalidOperationException("Order not found");
@@ -286,6 +290,17 @@ namespace CapShop.OrderService.Infrastructure.Repositories
                 throw new InvalidOperationException("Order must be paid before placing");
 
             await ClearCartAsync(userId);
+
+            await _publishEndpoint.Publish<OrderPlacedEvent>(new
+            {
+                CorrelationId = Guid.NewGuid(),
+                OrderId = order.Id,
+                UserId = order.UserId,
+                UserEmail = userEmail ?? string.Empty,
+                OrderNumber = order.OrderNumber,
+                TotalAmount = order.TotalAmount,
+                OccurredAtUtc = DateTime.UtcNow
+            });
 
             return new CheckoutResponseDto
             {

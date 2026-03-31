@@ -1,15 +1,15 @@
-using CapShop.OrderService.Data;
-using CapShop.OrderService.Application.Interfaces;
-using CapShop.OrderService.Application.Services;
-using CapShop.OrderService.Infrastructure.Repositories;
+using System.Text;
+using CapShop.NotificationService.Application.Interfaces;
+using CapShop.NotificationService.Application.Services;
+using CapShop.NotificationService.Data;
+using CapShop.NotificationService.Infrastructure.Repositories;
+using CapShop.NotificationService.Middleware;
+using CapShop.NotificationService.Consumers;
+using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using System.Text;
-using CapShop.OrderService.Middleware;
-using CapShop.OrderService.Consumers;
-using MassTransit;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,18 +43,18 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-builder.Services.AddDbContext<OrderDbContext>(opts =>
+builder.Services.AddDbContext<NotificationDbContext>(opts =>
     opts.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddHttpClient();
-builder.Services.AddScoped<IOrderRepository, OrderRepository>();
-builder.Services.AddScoped<IOrderAppService, OrderAppService>();
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<INotificationAppService, NotificationAppService>();
 
 builder.Services.AddMassTransit(x =>
 {
     x.SetKebabCaseEndpointNameFormatter();
     x.AddConsumer<PaymentSucceededEventConsumer>();
     x.AddConsumer<PaymentFailedEventConsumer>();
+    x.AddConsumer<OrderPlacedEventConsumer>();
 
     x.AddConfigureEndpointsCallback((context, _, cfg) =>
     {
@@ -74,7 +74,7 @@ builder.Services.AddMassTransit(x =>
     });
 });
 
-var secret = builder.Configuration.GetSection("JwtSettings")["SecretKey"];
+var secret = builder.Configuration["JwtSettings:SecretKey"];
 if (string.IsNullOrWhiteSpace(secret))
 {
     throw new InvalidOperationException("JwtSettings:SecretKey is missing in configuration.");
@@ -89,8 +89,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateAudience = true,
             ValidateIssuerSigningKey = true,
             ValidateLifetime = true,
-            ValidIssuer = "CapShop.AuthService",
-            ValidAudience = "CapShop.Client",
+            ValidIssuer = builder.Configuration["JwtSettings:Issuer"] ?? "CapShop.AuthService",
+            ValidAudience = builder.Configuration["JwtSettings:Audience"] ?? "CapShop.Client",
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
             ClockSkew = TimeSpan.FromMinutes(1)
         };
@@ -108,16 +108,14 @@ if (app.Environment.IsDevelopment())
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
 app.UseHttpsRedirection();
-
-
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<OrderDbContext>();
-    await CapShop.OrderService.Data.OrderDbSeeder.SeedAsync(db);
+    var db = scope.ServiceProvider.GetRequiredService<NotificationDbContext>();
+    await db.Database.EnsureCreatedAsync();
 }
 
 app.Run();

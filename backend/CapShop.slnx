@@ -15,6 +15,12 @@
   <Folder Name="/Services/OrderService/">
     <Project Path="Services/OrderService/CapShop.OrderService/CapShop.OrderService.csproj" />
   </Folder>
+  <Folder Name="/Services/PaymentService/">
+    <Project Path="Services/PaymentService/CapShop.PaymentService/CapShop.PaymentService.csproj" />
+  </Folder>
+  <Folder Name="/Services/NotificationService/">
+    <Project Path="Services/NotificationService/CapShop.NotificationService/CapShop.NotificationService.csproj" />
+  </Folder>
   <Folder Name="/Shared/">
     <Project Path="Shared/CapShop.Shared/CapShop.Shared.csproj" />
   </Folder>
@@ -22,4 +28,6 @@
   <Project Path="../tests/CapShop.AuthService.Tests/CapShop.AuthService.Tests.csproj" />
   <Project Path="../tests/CapShop.CatalogService.Tests/CapShop.CatalogService.Tests.csproj" />
   <Project Path="../tests/CapShop.OrderService.Tests/CapShop.OrderService.Tests.csproj" />
+  <Project Path="../tests/CapShop.PaymentService.Tests/CapShop.PaymentService.Tests.csproj" />
+  <Project Path="../tests/CapShop.NotificationService.Tests/CapShop.NotificationService.Tests.csproj" />
 </Solution>

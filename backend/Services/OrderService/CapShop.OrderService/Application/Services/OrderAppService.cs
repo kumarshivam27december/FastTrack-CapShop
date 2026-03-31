@@ -24,8 +24,8 @@ namespace CapShop.OrderService.Application.Services
         public Task<bool> ClearCartAsync(int userId) => _repo.ClearCartAsync(userId);
         public Task<AddressResponseDto> SaveAddressAsync(int userId, AddressRequestDto request) => _repo.SaveAddressAsync(userId, request);
         public Task<CheckoutResponseDto> StartCheckoutAsync(int userId, CheckoutStartRequestDto request) => _repo.StartCheckoutAsync(userId, request);
-        public Task<PaymentResponseDto> SimulatePaymentAsync(int userId, PaymentSimulateRequestDto request) => _repo.SimulatePaymentAsync(userId, request);
-        public Task<CheckoutResponseDto> PlaceOrderAsync(int userId, int orderId) => _repo.PlaceOrderAsync(userId, orderId);
+        public Task<PaymentResponseDto> SimulatePaymentAsync(int userId, string? userEmail, PaymentSimulateRequestDto request) => _repo.SimulatePaymentAsync(userId, userEmail, request);
+        public Task<CheckoutResponseDto> PlaceOrderAsync(int userId, string? userEmail, int orderId) => _repo.PlaceOrderAsync(userId, userEmail, orderId);
         public Task<OrderResponseDto?> GetOrderByIdAsync(int orderId, int userId) => _repo.GetOrderByIdAsync(orderId, userId);
         public Task<List<OrderResponseDto>> GetCustomerOrdersAsync(int userId) => _repo.GetCustomerOrdersAsync(userId);
         public Task<List<OrderResponseDto>> GetAllOrdersAsync() => _repo.GetAllOrdersAsync();

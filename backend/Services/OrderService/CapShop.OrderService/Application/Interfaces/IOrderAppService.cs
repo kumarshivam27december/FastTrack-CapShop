@@ -17,8 +17,8 @@ namespace CapShop.OrderService.Application.Interfaces
         Task<AddressResponseDto> SaveAddressAsync(int userId, AddressRequestDto request);
 
         Task<CheckoutResponseDto> StartCheckoutAsync(int userId, CheckoutStartRequestDto request);
-        Task<PaymentResponseDto> SimulatePaymentAsync(int userId, PaymentSimulateRequestDto request);
-        Task<CheckoutResponseDto> PlaceOrderAsync(int userId, int orderId);
+        Task<PaymentResponseDto> SimulatePaymentAsync(int userId, string? userEmail, PaymentSimulateRequestDto request);
+        Task<CheckoutResponseDto> PlaceOrderAsync(int userId, string? userEmail, int orderId);
 
         Task<OrderResponseDto?> GetOrderByIdAsync(int orderId, int userId);
         Task<List<OrderResponseDto>> GetCustomerOrdersAsync(int userId);

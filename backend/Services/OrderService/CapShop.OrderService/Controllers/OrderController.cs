@@ -31,6 +31,12 @@ namespace CapShop.OrderService.Controllers
             return userId;
         }
 
+        private string? GetUserEmail()
+        {
+            return User.FindFirst("email")?.Value
+                ?? User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress")?.Value;
+        }
+
         [HttpGet("health")]
         [AllowAnonymous]
         public IActionResult Health() => Ok(new { service = "OrderService", status = "Healthy" });
@@ -88,7 +94,7 @@ namespace CapShop.OrderService.Controllers
         public async Task<IActionResult> SimulatePayment([FromBody] PaymentSimulateRequestDto request)
         {
             var userId = GetUserIdStrict();
-            var payment = await _orderService.SimulatePaymentAsync(userId, request);
+            var payment = await _orderService.SimulatePaymentAsync(userId, GetUserEmail(), request);
             return Ok(payment);
         }
 
@@ -96,7 +102,7 @@ namespace CapShop.OrderService.Controllers
         public async Task<IActionResult> PlaceOrder([FromBody] PlaceOrderRequestDto request)
         {
             var userId = GetUserIdStrict();
-            var order = await _orderService.PlaceOrderAsync(userId, request.OrderId);
+            var order = await _orderService.PlaceOrderAsync(userId, GetUserEmail(), request.OrderId);
             return Ok(order);
         }
 
