@@ -2,22 +2,45 @@
 using CapShop.CatalogService.DTOs.Catalog;
 using CapShop.CatalogService.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 
 namespace CapShop.CatalogService.Infrastructure.Repositories
 {
     public class CatalogRepository : ICatalogRepository
     {
         private readonly CatalogDbContext _db;
+        private readonly IDistributedCache _cache;
+        private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+        private const string CacheVersionKey = "catalog:version";
+        private const string ProductCachePrefix = "catalog:product";
+        private const string FeaturedCacheKey = "catalog:featured";
+        private const string SearchCachePrefix = "catalog:search";
 
-        public CatalogRepository(CatalogDbContext db)
+        public CatalogRepository(CatalogDbContext db, IDistributedCache cache)
         {
             _db = db;
+            _cache = cache;
         }
 
         public async Task<(List<ProductResponseDto> products, int totalCount)> SearchProductsAsync(
             string? query, int? categoryId, decimal? minPrice, decimal? maxPrice, string? sortBy,
             int page = 1, int pageSize = 10, CancellationToken ct = default)
         {
+            var cacheVersion = await GetCacheVersionAsync(ct);
+            var cacheKey = BuildSearchCacheKey(cacheVersion, query, categoryId, minPrice, maxPrice, sortBy, page, pageSize);
+            var cached = await _cache.GetStringAsync(cacheKey, ct);
+            if (!string.IsNullOrWhiteSpace(cached))
+            {
+                var cachedResult = JsonSerializer.Deserialize<SearchProductsCacheEntry>(cached, JsonOptions);
+                if (cachedResult is not null)
+                {
+                    return (cachedResult.Products, cachedResult.TotalCount);
+                }
+            }
+
             var q = _db.Products.AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(query))
@@ -50,27 +73,84 @@ namespace CapShop.CatalogService.Infrastructure.Repositories
                 .Take(pageSize)
                 .ToListAsync(ct);
 
-            return (products.Select(MapToDto).ToList(), totalCount);
+            var result = (products: products.Select(MapToDto).ToList(), totalCount);
+
+            await _cache.SetStringAsync(
+                cacheKey,
+                JsonSerializer.Serialize(new SearchProductsCacheEntry(result.products, result.totalCount), JsonOptions),
+                new DistributedCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(2)
+                },
+                ct);
+
+            return result;
         }
 
         public async Task<ProductResponseDto?> GetProductByIdAsync(int id, CancellationToken ct = default)
         {
+            var cacheVersion = await GetCacheVersionAsync(ct);
+            var cacheKey = BuildProductCacheKey(cacheVersion, id);
+            var cached = await _cache.GetStringAsync(cacheKey, ct);
+            if (!string.IsNullOrWhiteSpace(cached))
+            {
+                return JsonSerializer.Deserialize<ProductResponseDto>(cached, JsonOptions);
+            }
+
             var product = await _db.Products
                 .Include(x => x.Category)
                 .FirstOrDefaultAsync(x => x.Id == id && x.IsActive, ct);
 
-            return product is null ? null : MapToDto(product);
+            if (product is null)
+            {
+                return null;
+            }
+
+            var mapped = MapToDto(product);
+            await _cache.SetStringAsync(
+                cacheKey,
+                JsonSerializer.Serialize(mapped, JsonOptions),
+                new DistributedCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
+                },
+                ct);
+
+            return mapped;
         }
 
         public async Task<List<ProductResponseDto>> GetFeaturedProductsAsync(CancellationToken ct = default)
         {
+            var cacheVersion = await GetCacheVersionAsync(ct);
+            var cacheKey = BuildKey(cacheVersion, FeaturedCacheKey);
+            var cached = await _cache.GetStringAsync(cacheKey, ct);
+            if (!string.IsNullOrWhiteSpace(cached))
+            {
+                var cachedFeatured = JsonSerializer.Deserialize<List<ProductResponseDto>>(cached, JsonOptions);
+                if (cachedFeatured is not null)
+                {
+                    return cachedFeatured;
+                }
+            }
+
             var featured = await _db.Products
                 .Where(x => x.IsActive && x.Stock > 0)
                 .Include(x => x.Category)
                 .Take(6)
                 .ToListAsync(ct);
 
-            return featured.Select(MapToDto).ToList();
+            var result = featured.Select(MapToDto).ToList();
+
+            await _cache.SetStringAsync(
+                cacheKey,
+                JsonSerializer.Serialize(result, JsonOptions),
+                new DistributedCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(2)
+                },
+                ct);
+
+            return result;
         }
 
         public async Task<ProductResponseDto> CreateProductAsync(CreateProductDto dto, CancellationToken ct = default)
@@ -88,6 +168,7 @@ namespace CapShop.CatalogService.Infrastructure.Repositories
 
             _db.Products.Add(product);
             await _db.SaveChangesAsync(ct);
+            await InvalidateCatalogCacheAsync(ct);
 
             var created = await _db.Products
                 .Include(x => x.Category)
@@ -111,6 +192,7 @@ namespace CapShop.CatalogService.Infrastructure.Repositories
             product.UpdatedAtUtc = DateTime.UtcNow;
 
             await _db.SaveChangesAsync(ct);
+            await InvalidateCatalogCacheAsync(ct);
             return true;
         }
 
@@ -122,6 +204,7 @@ namespace CapShop.CatalogService.Infrastructure.Repositories
             product.Stock = quantity;
             product.UpdatedAtUtc = DateTime.UtcNow;
             await _db.SaveChangesAsync(ct);
+            await InvalidateCatalogCacheAsync(ct);
             return true;
         }
 
@@ -132,8 +215,63 @@ namespace CapShop.CatalogService.Infrastructure.Repositories
 
             _db.Products.Remove(product);
             await _db.SaveChangesAsync(ct);
+            await InvalidateCatalogCacheAsync(ct);
             return true;
         }
+
+        private async Task<string> GetCacheVersionAsync(CancellationToken ct)
+        {
+            var version = await _cache.GetStringAsync(CacheVersionKey, ct);
+            if (!string.IsNullOrWhiteSpace(version))
+            {
+                return version;
+            }
+
+            version = "1";
+            await _cache.SetStringAsync(
+                CacheVersionKey,
+                version,
+                new DistributedCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(1)
+                },
+                ct);
+
+            return version;
+        }
+
+        private async Task InvalidateCatalogCacheAsync(CancellationToken ct)
+        {
+            await _cache.SetStringAsync(
+                CacheVersionKey,
+                Guid.NewGuid().ToString("N"),
+                new DistributedCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(1)
+                },
+                ct);
+        }
+
+        private static string BuildProductCacheKey(string version, int id)
+            => BuildKey(version, $"{ProductCachePrefix}:{id}");
+
+        private static string BuildSearchCacheKey(
+            string version,
+            string? query,
+            int? categoryId,
+            decimal? minPrice,
+            decimal? maxPrice,
+            string? sortBy,
+            int page,
+            int pageSize)
+        {
+            var rawKey = $"q={query ?? string.Empty}|c={categoryId?.ToString() ?? string.Empty}|min={minPrice?.ToString() ?? string.Empty}|max={maxPrice?.ToString() ?? string.Empty}|sort={sortBy ?? string.Empty}|page={page}|size={pageSize}";
+            var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey))).ToLowerInvariant();
+            return BuildKey(version, $"{SearchCachePrefix}:{hash}");
+        }
+
+        private static string BuildKey(string version, string suffix)
+            => $"catalog:{version}:{suffix}";
 
         private static ProductResponseDto MapToDto(Product product)
         {
@@ -153,5 +291,7 @@ namespace CapShop.CatalogService.Infrastructure.Repositories
                 }
             };
         }
+
+        private sealed record SearchProductsCacheEntry(List<ProductResponseDto> Products, int TotalCount);
     }
 }

@@ -44,6 +44,18 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddDbContext<CatalogDbContext>(opts =>
     opts.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+var redisConfiguration = builder.Configuration["Redis:Configuration"];
+if (string.IsNullOrWhiteSpace(redisConfiguration))
+{
+    throw new InvalidOperationException("Redis:Configuration is missing in configuration.");
+}
+
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = redisConfiguration;
+    options.InstanceName = builder.Configuration["Redis:InstanceName"] ?? "CapShop:Catalog:";
+});
+
 builder.Services.AddScoped<ICatalogRepository, CatalogRepository>();
 builder.Services.AddScoped<IProductAppService, ProductAppService>();
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
