@@ -5,7 +5,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "adminservice",
           "Port": 5016
         }
       ],
@@ -17,7 +17,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "authservice",
           "Port": 5013
         }
       ],
@@ -29,7 +29,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "catalogservice",
           "Port": 5014
         }
       ],
@@ -41,7 +41,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "orderservice",
           "Port": 5015
         }
       ],
@@ -53,7 +53,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "paymentservice",
           "Port": 5017
         }
       ],
@@ -65,7 +65,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "notificationservice",
           "Port": 5018
         }
       ],

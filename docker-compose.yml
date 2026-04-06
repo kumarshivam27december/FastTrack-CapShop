@@ -1,0 +1,224 @@
+services:
+  # SQL Server
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: capshop-sqlserver
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=CapShop@12345
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "CapShop@12345", "-Q", "SELECT 1", "-C"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - capshop-network
+    restart: unless-stopped
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: capshop-redis
+    networks:
+      - capshop-network
+    restart: unless-stopped
+
+  # RabbitMQ
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: capshop-rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    networks:
+      - capshop-network
+    restart: unless-stopped
+
+  # React Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        - REACT_APP_API_BASE_URL=http://localhost:5041/gateway
+        - REACT_APP_GOOGLE_CLIENT_ID=239970904539-2s5bcg3nobj4lvv52pm7ssjh0d0cge9l.apps.googleusercontent.com
+    container_name: capshop-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - gateway
+    networks:
+      - capshop-network
+    restart: unless-stopped
+
+  # API Gateway (Ocelot)
+  gateway:
+    build:
+      context: .
+      dockerfile: backend/Gateway/CapShop.Gateway/Dockerfile
+    container_name: capshop-gateway
+    ports:
+      - "5041:5041"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5041
+    depends_on:
+      - authservice
+      - catalogservice
+      - orderservice
+      - adminservice
+      - paymentservice
+      - notificationservice
+    networks:
+      - capshop-network
+    restart: unless-stopped
+
+  # Auth Service
+  authservice:
+    build:
+      context: .
+      dockerfile: backend/Services/AuthService/CapShop.AuthService/Dockerfile
+    container_name: capshop-authservice
+    ports:
+      - "5013:5013"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5013
+      - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=CapShopAuthDb;User Id=sa;Password=CapShop@12345;TrustServerCertificate=True;Encrypt=True
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    networks:
+      - capshop-network
+    restart: unless-stopped
+
+  # Catalog Service
+  catalogservice:
+    build:
+      context: .
+      dockerfile: backend/Services/CatalogService/CapShop.CatalogService/Dockerfile
+    container_name: capshop-catalogservice
+    ports:
+      - "5014:5014"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5014
+      - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=CapShopCatalogDb;User Id=sa;Password=CapShop@12345;TrustServerCertificate=True;Encrypt=True
+      - Redis__Configuration=redis:6379
+      - "Redis__InstanceName=CapShop:Catalog:"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - capshop-network
+    restart: unless-stopped
+
+  # Order Service
+  orderservice:
+    build:
+      context: .
+      dockerfile: backend/Services/OrderService/CapShop.OrderService/Dockerfile
+    container_name: capshop-orderservice
+    ports:
+      - "5015:5015"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5015
+      - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=CapShopOrderDb;User Id=sa;Password=CapShop@12345;TrustServerCertificate=True;Encrypt=True
+      - CatalogServiceUrl=http://catalogservice:5014
+      - RabbitMq__Host=rabbitmq
+      - RabbitMq__Username=guest
+      - RabbitMq__Password=guest
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+    networks:
+      - capshop-network
+    restart: unless-stopped
+
+  # Admin Service
+  adminservice:
+    build:
+      context: .
+      dockerfile: backend/Services/AdminService/CapShop.AdminService/Dockerfile
+    container_name: capshop-adminservice
+    ports:
+      - "5016:5016"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5016
+      - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=CapShopAdminDb;User Id=sa;Password=CapShop@12345;TrustServerCertificate=True;Encrypt=True
+      - ServiceUrls__OrderService=http://orderservice:5015
+      - ServiceUrls__CatalogService=http://catalogservice:5014
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    networks:
+      - capshop-network
+    restart: unless-stopped
+
+  # Payment Service
+  paymentservice:
+    build:
+      context: .
+      dockerfile: backend/Services/PaymentService/CapShop.PaymentService/Dockerfile
+    container_name: capshop-paymentservice
+    ports:
+      - "5017:5017"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5017
+      - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=CapShopPaymentDb;User Id=sa;Password=CapShop@12345;TrustServerCertificate=True;Encrypt=True
+      - RabbitMq__Host=rabbitmq
+      - RabbitMq__Username=guest
+      - RabbitMq__Password=guest
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+    networks:
+      - capshop-network
+    restart: unless-stopped
+
+  # Notification Service
+  notificationservice:
+    build:
+      context: .
+      dockerfile: backend/Services/NotificationService/CapShop.NotificationService/Dockerfile
+    container_name: capshop-notificationservice
+    ports:
+      - "5018:5018"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5018
+      - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=CapShopNotificationDb;User Id=sa;Password=CapShop@12345;TrustServerCertificate=True;Encrypt=True
+      - RabbitMq__Host=rabbitmq
+      - RabbitMq__Username=guest
+      - RabbitMq__Password=guest
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+    networks:
+      - capshop-network
+    restart: unless-stopped
+
+networks:
+  capshop-network:
+    driver: bridge
+
+volumes:
+  sqlserver-data:
