@@ -51,6 +51,12 @@ namespace CapShop.CatalogService.Application.Services
             return await _repo.UpdateStockAsync(id, quantity, ct);
         }
 
+        public async Task<bool> DecreaseStockAsync(int id, int quantity, CancellationToken ct = default)
+        {
+            if (quantity <= 0) throw new InvalidOperationException("Quantity must be greater than 0.");
+            return await _repo.DecreaseStockAsync(id, quantity, ct);
+        }
+
         public Task<bool> DeleteProductAsync(int id, CancellationToken ct = default)
             => _repo.DeleteProductAsync(id, ct);
     }

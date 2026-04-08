@@ -62,6 +62,7 @@ public interface OrderPlacedEvent
 
 public interface OrderPlacedItemEvent
 {
+    int ProductId { get; }
     string Title { get; }
     string Description { get; }
     decimal Price { get; }

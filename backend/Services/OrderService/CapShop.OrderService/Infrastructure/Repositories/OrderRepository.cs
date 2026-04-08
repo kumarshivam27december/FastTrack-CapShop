@@ -291,25 +291,6 @@ namespace CapShop.OrderService.Infrastructure.Repositories
 
             await ClearCartAsync(userId);
 
-            await _publishEndpoint.Publish<OrderPlacedEvent>(new
-            {
-                CorrelationId = Guid.NewGuid(),
-                OrderId = order.Id,
-                UserId = order.UserId,
-                UserEmail = userEmail ?? string.Empty,
-                OrderNumber = order.OrderNumber,
-                TotalAmount = order.TotalAmount,
-                Items = order.Items.Select(i => new
-                {
-                    Title = i.ProductName,
-                    Description = $"Product ID: {i.ProductId}",
-                    Price = i.UnitPrice,
-                    Quantity = i.Quantity,
-                    Amount = i.TotalPrice
-                }).ToList(),
-                OccurredAtUtc = DateTime.UtcNow
-            });
-
             return new CheckoutResponseDto
             {
                 OrderId = order.Id,

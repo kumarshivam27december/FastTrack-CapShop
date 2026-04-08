@@ -1,9 +1,11 @@
 using System.Text;
 using CapShop.CatalogService.Application.Interfaces;
 using CapShop.CatalogService.Application.Services;
+using CapShop.CatalogService.Consumers;
 using CapShop.CatalogService.Data;
 using CapShop.CatalogService.Infrastructure.Repositories;
 using CapShop.CatalogService.Middleware;
+using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -60,6 +62,29 @@ builder.Services.AddScoped<ICatalogRepository, CatalogRepository>();
 builder.Services.AddScoped<IProductAppService, ProductAppService>();
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<ICategoryAppService, CategoryAppService>();
+
+builder.Services.AddMassTransit(x =>
+{
+    x.SetEndpointNameFormatter(new KebabCaseEndpointNameFormatter("catalog", false));
+    x.AddConsumer<OrderPlacedEventConsumer>();
+
+    x.AddConfigureEndpointsCallback((context, _, cfg) =>
+    {
+        cfg.UseMessageRetry(r => r.Interval(3, TimeSpan.FromSeconds(2)));
+        cfg.UseInMemoryOutbox();
+    });
+
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        cfg.Host(builder.Configuration["RabbitMq:Host"] ?? "localhost", "/", h =>
+        {
+            h.Username(builder.Configuration["RabbitMq:Username"] ?? "guest");
+            h.Password(builder.Configuration["RabbitMq:Password"] ?? "guest");
+        });
+
+        cfg.ConfigureEndpoints(context);
+    });
+});
 
 var secret = builder.Configuration["JwtSettings:SecretKey"];
 if (string.IsNullOrWhiteSpace(secret))

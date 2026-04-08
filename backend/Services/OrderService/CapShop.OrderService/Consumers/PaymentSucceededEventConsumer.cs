@@ -58,6 +58,7 @@ public class PaymentSucceededEventConsumer : IConsumer<PaymentSucceededEvent>
             TotalAmount = order.TotalAmount,
             Items = order.Items.Select(i => new
             {
+                ProductId = i.ProductId,
                 Title = i.ProductName,
                 Description = $"Product ID: {i.ProductId}",
                 Price = i.UnitPrice,

@@ -19,6 +19,7 @@ namespace CapShop.CatalogService.Application.Interfaces
         Task<ProductResponseDto> CreateProductAsync(CreateProductDto dto, CancellationToken ct = default);
         Task<bool> UpdateProductAsync(int id, UpdateProductDto dto, CancellationToken ct = default);
         Task<bool> UpdateStockAsync(int id, int quantity, CancellationToken ct = default);
+        Task<bool> DecreaseStockAsync(int id, int quantity, CancellationToken ct = default);
         Task<bool> DeleteProductAsync(int id, CancellationToken ct = default);
     }
 }

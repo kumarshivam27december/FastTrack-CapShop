@@ -208,6 +208,25 @@ namespace CapShop.CatalogService.Infrastructure.Repositories
             return true;
         }
 
+        public async Task<bool> DecreaseStockAsync(int id, int quantity, CancellationToken ct = default)
+        {
+            if (quantity <= 0) return false;
+
+            var affectedRows = await _db.Products
+                .Where(x => x.Id == id && x.Stock >= quantity)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(x => x.Stock, x => x.Stock - quantity)
+                    .SetProperty(x => x.UpdatedAtUtc, _ => DateTime.UtcNow), ct);
+
+            if (affectedRows == 0)
+            {
+                return false;
+            }
+
+            await InvalidateCatalogCacheAsync(ct);
+            return true;
+        }
+
         public async Task<bool> DeleteProductAsync(int id, CancellationToken ct = default)
         {
             var product = await _db.Products.FindAsync(new object[] { id }, ct);
