@@ -135,6 +135,7 @@ services:
       - ASPNETCORE_URLS=http://+:5015
       - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=CapShopOrderDb;User Id=sa;Password=CapShop@12345;TrustServerCertificate=True;Encrypt=True
       - CatalogServiceUrl=http://catalogservice:5014
+      - PaymentServiceUrl=http://paymentservice:5017
       - RabbitMq__Host=rabbitmq
       - RabbitMq__Username=guest
       - RabbitMq__Password=guest

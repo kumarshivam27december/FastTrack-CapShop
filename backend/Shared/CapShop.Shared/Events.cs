@@ -60,6 +60,47 @@ public interface OrderPlacedEvent
     DateTime OccurredAtUtc { get; }
 }
 
+/// <summary>
+/// Published by OrderService to request stock reservation after payment succeeds.
+/// </summary>
+public interface ReserveStockCommand
+{
+    Guid CorrelationId { get; }
+    int OrderId { get; }
+    int UserId { get; }
+    string UserEmail { get; }
+    string OrderNumber { get; }
+    decimal TotalAmount { get; }
+    IEnumerable<OrderPlacedItemEvent> Items { get; }
+    DateTime OccurredAtUtc { get; }
+}
+
+/// <summary>
+/// Published by CatalogService when stock reservation succeeds.
+/// </summary>
+public interface StockReservedEvent
+{
+    Guid CorrelationId { get; }
+    int OrderId { get; }
+    int UserId { get; }
+    string OrderNumber { get; }
+    decimal TotalAmount { get; }
+    DateTime OccurredAtUtc { get; }
+}
+
+/// <summary>
+/// Published by CatalogService when stock reservation fails.
+/// </summary>
+public interface StockReservationFailedEvent
+{
+    Guid CorrelationId { get; }
+    int OrderId { get; }
+    int UserId { get; }
+    string OrderNumber { get; }
+    string FailureReason { get; }
+    DateTime OccurredAtUtc { get; }
+}
+
 public interface OrderPlacedItemEvent
 {
     int ProductId { get; }

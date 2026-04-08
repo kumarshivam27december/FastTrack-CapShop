@@ -19,6 +19,7 @@ namespace CapShop.OrderService.Infrastructure.Repositories
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IPublishEndpoint _publishEndpoint;
         private readonly string _catalogBaseUrl;
+        private readonly string _paymentBaseUrl;
 
         public OrderRepository(OrderDbContext db, IHttpClientFactory httpClientFactory, IConfiguration configuration, IPublishEndpoint publishEndpoint)
         {
@@ -26,6 +27,7 @@ namespace CapShop.OrderService.Infrastructure.Repositories
             _httpClientFactory = httpClientFactory;
             _publishEndpoint = publishEndpoint;
             _catalogBaseUrl = configuration["CatalogServiceUrl"] ?? "http://localhost:5014";
+            _paymentBaseUrl = configuration["PaymentServiceUrl"] ?? "http://localhost:5017";
         }
 
         public async Task<CartResponseDto> GetOrCreateCartAsync(int userId)
@@ -286,10 +288,34 @@ namespace CapShop.OrderService.Infrastructure.Repositories
             var order = await _db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == orderId && o.UserId == userId);
             if (order is null) throw new InvalidOperationException("Order not found");
 
-            if (order.Status != OrderStatus.Paid)
-                throw new InvalidOperationException("Order must be paid before placing");
+            if (order.Status == OrderStatus.Cancelled)
+                throw new InvalidOperationException("Order could not be completed.");
 
-            await ClearCartAsync(userId);
+            if (order.Status == OrderStatus.PaymentPending || order.Status == OrderStatus.CheckoutStarted)
+            {
+                var paymentUpdated = await TryUpdateOrderStatusFromPaymentAsync(order);
+                if (paymentUpdated)
+                {
+                    order = await _db.Orders.Include(o => o.Items).FirstAsync(o => o.Id == orderId && o.UserId == userId);
+                }
+            }
+
+            if (order.Status == OrderStatus.Paid)
+            {
+                var finalizedSynchronously = await TryFinalizePaidOrderSynchronouslyAsync(order, userEmail);
+                if (finalizedSynchronously)
+                {
+                    order = await _db.Orders.Include(o => o.Items).FirstAsync(o => o.Id == orderId && o.UserId == userId);
+                }
+            }
+
+            if (order.Status != OrderStatus.Paid && order.Status != OrderStatus.Completed)
+            {
+                order = await WaitForOrderCompletionAsync(order.Id, userId, TimeSpan.FromSeconds(12));
+            }
+
+            if (order.Status != OrderStatus.Paid && order.Status != OrderStatus.Completed)
+                throw new InvalidOperationException("Order is still being finalized.");
 
             return new CheckoutResponseDto
             {
@@ -299,6 +325,235 @@ namespace CapShop.OrderService.Infrastructure.Repositories
                 Status = order.Status.ToString(),
                 Message = "Order placed successfully"
             };
+        }
+
+        private async Task<Order> WaitForOrderCompletionAsync(int orderId, int userId, TimeSpan timeout)
+        {
+            var end = DateTime.UtcNow.Add(timeout);
+            var current = await _db.Orders.Include(o => o.Items).FirstAsync(o => o.Id == orderId && o.UserId == userId);
+
+            while (DateTime.UtcNow < end)
+            {
+                if (current.Status == OrderStatus.Paid || current.Status == OrderStatus.Completed || current.Status == OrderStatus.Cancelled)
+                {
+                    return current;
+                }
+
+                await Task.Delay(500);
+
+                current = await _db.Orders
+                    .AsNoTracking()
+                    .Include(o => o.Items)
+                    .FirstAsync(o => o.Id == orderId && o.UserId == userId);
+            }
+
+            return current;
+        }
+
+        private async Task<bool> TryFinalizePaidOrderSynchronouslyAsync(Order order, string? userEmail)
+        {
+            if (order.Status != OrderStatus.Paid)
+            {
+                return false;
+            }
+
+            var sagaAlreadyStartedReservation = await _db.OrderStatusHistories.AnyAsync(h =>
+                h.OrderId == order.Id &&
+                h.FromStatus == OrderStatus.Paid &&
+                h.ToStatus == OrderStatus.Paid &&
+                h.Notes == "Reserve stock command published by saga");
+
+            if (sagaAlreadyStartedReservation)
+            {
+                return false;
+            }
+
+            var fallbackAlreadyStartedReservation = await _db.OrderStatusHistories.AnyAsync(h =>
+                h.OrderId == order.Id &&
+                h.FromStatus == OrderStatus.Paid &&
+                h.ToStatus == OrderStatus.Paid &&
+                h.Notes == "Reserve stock started by place-order fallback");
+
+            if (fallbackAlreadyStartedReservation)
+            {
+                return false;
+            }
+
+            _db.OrderStatusHistories.Add(new OrderStatusHistory
+            {
+                OrderId = order.Id,
+                FromStatus = OrderStatus.Paid,
+                ToStatus = OrderStatus.Paid,
+                Notes = "Reserve stock started by place-order fallback"
+            });
+
+            await _db.SaveChangesAsync();
+
+            var client = _httpClientFactory.CreateClient();
+            var response = await client.PostAsJsonAsync(
+                $"{_catalogBaseUrl}/catalog/internal/reserve-stock",
+                order.Items.Select(i => new
+                {
+                    ProductId = i.ProductId,
+                    Title = i.ProductName,
+                    Description = $"Product ID: {i.ProductId}",
+                    Price = i.UnitPrice,
+                    Quantity = i.Quantity,
+                    Amount = i.TotalPrice
+                }).ToList());
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return false;
+            }
+
+            var reserveResult = await response.Content.ReadFromJsonAsync<ReserveStockResponse>();
+            if (reserveResult is null)
+            {
+                return false;
+            }
+
+            if (!reserveResult.Success)
+            {
+                var oldStatus = order.Status;
+                order.Status = OrderStatus.Cancelled;
+                order.UpdatedAtUtc = DateTime.UtcNow;
+
+                _db.OrderStatusHistories.Add(new OrderStatusHistory
+                {
+                    OrderId = order.Id,
+                    FromStatus = oldStatus,
+                    ToStatus = OrderStatus.Cancelled,
+                    Notes = "Synchronous reserve-stock failed during PlaceOrder"
+                });
+
+                await _db.SaveChangesAsync();
+                return true;
+            }
+
+            var fromStatus = order.Status;
+            order.Status = OrderStatus.Paid;
+            order.UpdatedAtUtc = DateTime.UtcNow;
+
+            _db.OrderStatusHistories.Add(new OrderStatusHistory
+            {
+                OrderId = order.Id,
+                FromStatus = fromStatus,
+                ToStatus = OrderStatus.Paid,
+                Notes = "Inventory reserved via synchronous fallback"
+            });
+
+            var cart = await _db.Carts
+                .Include(x => x.Items)
+                .FirstOrDefaultAsync(x => x.UserId == order.UserId);
+
+            if (cart is not null)
+            {
+                cart.Items.Clear();
+                cart.UpdatedAtUtc = DateTime.UtcNow;
+            }
+
+            await _db.SaveChangesAsync();
+
+            await _publishEndpoint.Publish<OrderPlacedEvent>(new
+            {
+                CorrelationId = Guid.NewGuid(),
+                OrderId = order.Id,
+                UserId = order.UserId,
+                UserEmail = userEmail ?? string.Empty,
+                OrderNumber = order.OrderNumber,
+                TotalAmount = order.TotalAmount,
+                Items = order.Items.Select(i => new
+                {
+                    ProductId = i.ProductId,
+                    Title = i.ProductName,
+                    Description = $"Product ID: {i.ProductId}",
+                    Price = i.UnitPrice,
+                    Quantity = i.Quantity,
+                    Amount = i.TotalPrice
+                }).ToList(),
+                OccurredAtUtc = DateTime.UtcNow
+            });
+
+            return true;
+        }
+
+        private sealed class ReserveStockResponse
+        {
+            public bool Success { get; set; }
+        }
+
+        private sealed class PaymentStatusResponse
+        {
+            public int OrderId { get; set; }
+            public string Status { get; set; } = string.Empty;
+            public string? TransactionId { get; set; }
+            public string? FailureReason { get; set; }
+        }
+
+        private async Task<bool> TryUpdateOrderStatusFromPaymentAsync(Order order)
+        {
+            var client = _httpClientFactory.CreateClient();
+            var response = await client.GetAsync($"{_paymentBaseUrl}/payment/internal/order/{order.Id}/latest");
+            if (!response.IsSuccessStatusCode)
+            {
+                return false;
+            }
+
+            var payment = await response.Content.ReadFromJsonAsync<PaymentStatusResponse>();
+            if (payment is null || payment.OrderId != order.Id)
+            {
+                return false;
+            }
+
+            if (string.Equals(payment.Status, "Succeeded", StringComparison.OrdinalIgnoreCase))
+            {
+                if (order.Status != OrderStatus.Paid)
+                {
+                    var oldStatus = order.Status;
+                    order.Status = OrderStatus.Paid;
+                    order.PaymentTransactionId = payment.TransactionId;
+                    order.UpdatedAtUtc = DateTime.UtcNow;
+
+                    _db.OrderStatusHistories.Add(new OrderStatusHistory
+                    {
+                        OrderId = order.Id,
+                        FromStatus = oldStatus,
+                        ToStatus = OrderStatus.Paid,
+                        Notes = "Recovered from PaymentService status check"
+                    });
+
+                    await _db.SaveChangesAsync();
+                }
+
+                return true;
+            }
+
+            if (string.Equals(payment.Status, "Failed", StringComparison.OrdinalIgnoreCase))
+            {
+                if (order.Status != OrderStatus.Cancelled)
+                {
+                    var oldStatus = order.Status;
+                    order.Status = OrderStatus.Cancelled;
+                    order.UpdatedAtUtc = DateTime.UtcNow;
+
+                    _db.OrderStatusHistories.Add(new OrderStatusHistory
+                    {
+                        OrderId = order.Id,
+                        FromStatus = oldStatus,
+                        ToStatus = OrderStatus.Cancelled,
+                        Notes = string.IsNullOrWhiteSpace(payment.FailureReason)
+                            ? "Recovered from PaymentService status check: payment failed"
+                            : $"Recovered from PaymentService status check: {payment.FailureReason}"
+                    });
+
+                    await _db.SaveChangesAsync();
+                }
+
+                return true;
+            }
+
+            return false;
         }
 
         public async Task<OrderResponseDto?> GetOrderByIdAsync(int orderId, int userId)
@@ -366,7 +621,8 @@ namespace CapShop.OrderService.Infrastructure.Repositories
             if (order is null || order.UserId != userId) return false;
 
             if (order.Status == OrderStatus.Packed || order.Status == OrderStatus.Shipped ||
-                order.Status == OrderStatus.Delivered || order.Status == OrderStatus.Cancelled)
+                order.Status == OrderStatus.Delivered || order.Status == OrderStatus.Cancelled ||
+                order.Status == OrderStatus.Completed)
                 throw new InvalidOperationException("Cannot cancel orders already packed or shipped");
 
             var oldStatus = order.Status;
@@ -397,7 +653,9 @@ namespace CapShop.OrderService.Infrastructure.Repositories
 
             return (from, to) switch
             {
+                (OrderStatus.Paid, OrderStatus.Completed) => true,
                 (OrderStatus.Paid, OrderStatus.Packed) => true,
+                (OrderStatus.Completed, OrderStatus.Packed) => true,
                 (OrderStatus.Packed, OrderStatus.Shipped) => true,
                 (OrderStatus.Shipped, OrderStatus.Delivered) => true,
                 _ => false

@@ -247,33 +247,21 @@ namespace CapShop.OrderService.Migrations
                     b.ToTable("OrderStatusHistories");
                 });
 
-            modelBuilder.Entity("CapShop.OrderService.Sagas.OrderCheckoutState", b =>
+            modelBuilder.Entity("CapShop.OrderService.Sagas.OrderSagaState", b =>
                 {
                     b.Property<Guid>("CorrelationId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("datetime2");
 
                     b.Property<string>("CurrentState")
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
 
-                    b.Property<string>("FailureReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
                     b.Property<int>("OrderId")
                         .HasColumnType("int");
 
                     b.Property<string>("OrderNumber")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("PaymentMethod")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -287,9 +275,6 @@ namespace CapShop.OrderService.Migrations
                     b.Property<decimal>("TotalAmount")
                         .HasPrecision(12, 2)
                         .HasColumnType("decimal(12,2)");
-
-                    b.Property<DateTime>("UpdatedAtUtc")
-                        .HasColumnType("datetime2");
 
                     b.Property<string>("UserEmail")
                         .IsRequired()
@@ -305,7 +290,7 @@ namespace CapShop.OrderService.Migrations
 
                     b.HasIndex("OrderId");
 
-                    b.ToTable("OrderCheckoutStates");
+                    b.ToTable("OrderSagaStates");
                 });
 
             modelBuilder.Entity("CapShop.OrderService.Models.CartItem", b =>

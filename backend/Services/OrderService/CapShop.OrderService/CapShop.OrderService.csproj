@@ -28,6 +28,7 @@
 	<ItemGroup>
 		<!-- MassTransit for RabbitMQ -->
 		<PackageReference Include="MassTransit" Version="8.0.13" />
+		<PackageReference Include="MassTransit.EntityFrameworkCore" Version="8.0.13" />
 		<PackageReference Include="MassTransit.RabbitMQ" Version="8.0.13" />
 	</ItemGroup>
 

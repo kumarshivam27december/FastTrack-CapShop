@@ -36,7 +36,7 @@ export default function CheckoutPage() {
       } catch (err) {
         lastError = err;
         const msg = String(err?.message || '').toLowerCase();
-        if (!msg.includes('must be paid before placing')) {
+        if (!msg.includes('must be paid before placing') && !msg.includes('still being finalized')) {
           throw err;
         }
 
@@ -112,7 +112,14 @@ export default function CheckoutPage() {
         });
         setOrderInfo(placed);
         await refreshCart();
-      } catch {
+      } catch (err) {
+        const msg = String(err?.message || '').toLowerCase();
+        const isFinalizing = msg.includes('must be paid before placing') || msg.includes('still being finalized');
+
+        if (!isFinalizing) {
+          throw err;
+        }
+
         setPaymentInfo({
           ...response,
           success: true,

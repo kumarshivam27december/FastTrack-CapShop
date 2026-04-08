@@ -1,5 +1,6 @@
 ﻿using CapShop.CatalogService.Application.Interfaces;
 using CapShop.CatalogService.DTOs.Catalog;
+using CapShop.Shared.Events;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -96,10 +97,62 @@ namespace CapShop.CatalogService.Controllers
             if (!ok) return NotFound();
             return Ok(new { message = "Product deleted successfully" });
         }
+
+        [HttpPost("internal/reserve-stock")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ReserveStock([FromBody] List<InternalReserveStockItemDto> items, CancellationToken ct)
+        {
+            if (items is null || items.Count == 0)
+            {
+                return BadRequest(new { message = "At least one item is required." });
+            }
+
+            var mappedItems = items
+                .Where(x => x.ProductId > 0 && x.Quantity > 0)
+                .Select(x => new InternalOrderPlacedItemEvent
+                {
+                    ProductId = x.ProductId,
+                    Title = x.Title ?? string.Empty,
+                    Description = x.Description ?? string.Empty,
+                    Price = x.Price,
+                    Quantity = x.Quantity,
+                    Amount = x.Amount
+                })
+                .Cast<OrderPlacedItemEvent>()
+                .ToList();
+
+            if (mappedItems.Count == 0)
+            {
+                return BadRequest(new { message = "No valid stock items were provided." });
+            }
+
+            var reserved = await _productAppService.ReserveStockAsync(mappedItems, ct);
+            return Ok(new { success = reserved });
+        }
     }
 
     public class UpdateStockDto
     {
         public int Stock { get; set; }
+    }
+
+    public class InternalReserveStockItemDto
+    {
+        public int ProductId { get; set; }
+        public string? Title { get; set; }
+        public string? Description { get; set; }
+        public decimal Price { get; set; }
+        public int Quantity { get; set; }
+        public decimal Amount { get; set; }
+    }
+
+    internal class InternalOrderPlacedItemEvent : OrderPlacedItemEvent
+    {
+        public int ProductId { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+        public int Quantity { get; set; }
+        public decimal Amount { get; set; }
     }
 }

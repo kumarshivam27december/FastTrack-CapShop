@@ -227,6 +227,38 @@ namespace CapShop.CatalogService.Infrastructure.Repositories
             return true;
         }
 
+        public async Task<bool> ReserveStockAsync(IEnumerable<CapShop.Shared.Events.OrderPlacedItemEvent> items, CancellationToken ct = default)
+        {
+            var stockItems = items
+                .Where(x => x.ProductId > 0 && x.Quantity > 0)
+                .ToList();
+
+            if (!stockItems.Any())
+            {
+                return false;
+            }
+
+            await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+
+            foreach (var item in stockItems)
+            {
+                var product = await _db.Products.FirstOrDefaultAsync(x => x.Id == item.ProductId, ct);
+                if (product is null || !product.IsActive || product.Stock < item.Quantity)
+                {
+                    await transaction.RollbackAsync(ct);
+                    return false;
+                }
+
+                product.Stock -= item.Quantity;
+                product.UpdatedAtUtc = DateTime.UtcNow;
+            }
+
+            await _db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+            await InvalidateCatalogCacheAsync(ct);
+            return true;
+        }
+
         public async Task<bool> DeleteProductAsync(int id, CancellationToken ct = default)
         {
             var product = await _db.Products.FindAsync(new object[] { id }, ct);

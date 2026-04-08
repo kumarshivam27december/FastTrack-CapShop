@@ -1,4 +1,5 @@
 ﻿using CapShop.OrderService.Models;
+using CapShop.OrderService.Sagas;
 using Microsoft.EntityFrameworkCore;
 
 
@@ -14,6 +15,7 @@ namespace CapShop.OrderService.Data
         public DbSet<Order> Orders => Set<Order>();
         public DbSet<OrderItem> OrderItems => Set<OrderItem>();
         public DbSet<OrderStatusHistory> OrderStatusHistories => Set<OrderStatusHistory>();
+        public DbSet<OrderSagaState> OrderSagaStates => Set<OrderSagaState>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -74,6 +76,19 @@ namespace CapShop.OrderService.Data
                 entity.Property(x => x.ToStatus).HasConversion<int>();
                 entity.Property(x => x.Notes).HasMaxLength(500);
                 entity.HasIndex(x => x.OrderId);
+            });
+
+            modelBuilder.Entity<OrderSagaState>(entity =>
+            {
+                entity.HasKey(x => x.CorrelationId);
+                entity.Property(x => x.CurrentState).HasMaxLength(64).IsRequired();
+                entity.Property(x => x.OrderNumber).HasMaxLength(50).IsRequired();
+                entity.Property(x => x.UserEmail).HasMaxLength(256).IsRequired();
+                entity.Property(x => x.TotalAmount).HasPrecision(12, 2);
+                entity.Property(x => x.RowVersion).IsRowVersion();
+                entity.HasIndex(x => x.CurrentState);
+                entity.HasIndex(x => x.OrderId);
+                entity.ToTable("OrderSagaStates");
             });
         }
     }

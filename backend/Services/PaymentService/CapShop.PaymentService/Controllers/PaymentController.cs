@@ -76,6 +76,19 @@ public class PaymentController : ControllerBase
         return Ok(payment);
     }
 
+    [HttpGet("internal/order/{orderId:int}/latest")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetLatestByOrderIdInternal(int orderId)
+    {
+        var payment = await _paymentService.GetLatestByOrderIdAsync(orderId);
+        if (payment is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(payment);
+    }
+
     [HttpPut("{id:int}/status")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdatePaymentStatusRequestDto request)

@@ -8,7 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 using CapShop.OrderService.Middleware;
-using CapShop.OrderService.Consumers;
+using CapShop.OrderService.Sagas;
 using MassTransit;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -53,8 +53,12 @@ builder.Services.AddScoped<IOrderAppService, OrderAppService>();
 builder.Services.AddMassTransit(x =>
 {
     x.SetEndpointNameFormatter(new KebabCaseEndpointNameFormatter("order", false));
-    x.AddConsumer<PaymentSucceededEventConsumer>();
-    x.AddConsumer<PaymentFailedEventConsumer>();
+    x.AddSagaStateMachine<OrderSagaStateMachine, OrderSagaState>()
+        .EntityFrameworkRepository(r =>
+        {
+            r.ExistingDbContext<OrderDbContext>();
+            r.UseSqlServer();
+        });
 
     x.AddConfigureEndpointsCallback((context, _, cfg) =>
     {
@@ -117,6 +121,7 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<OrderDbContext>();
+    await db.Database.MigrateAsync();
     await CapShop.OrderService.Data.OrderDbSeeder.SeedAsync(db);
 }
 

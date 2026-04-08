@@ -20,6 +20,7 @@ namespace CapShop.CatalogService.Infrastructure.Repositories
         Task<bool> UpdateProductAsync(int id, UpdateProductDto dto, CancellationToken ct = default);
         Task<bool> UpdateStockAsync(int id, int quantity, CancellationToken ct = default);
         Task<bool> DecreaseStockAsync(int id, int quantity, CancellationToken ct = default);
+        Task<bool> ReserveStockAsync(IEnumerable<CapShop.Shared.Events.OrderPlacedItemEvent> items, CancellationToken ct = default);
         Task<bool> DeleteProductAsync(int id, CancellationToken ct = default);
     }
 }

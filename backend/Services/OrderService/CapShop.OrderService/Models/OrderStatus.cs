@@ -9,6 +9,7 @@
         Packed = 4,
         Shipped = 5,
         Delivered = 6,
-        Cancelled = 7
+        Cancelled = 7,
+        Completed = 8
     }
 }
