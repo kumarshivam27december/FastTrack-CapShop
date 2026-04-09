@@ -1,7 +1,6 @@
 ﻿using CapShop.CatalogService.Application.Interfaces;
 using CapShop.CatalogService.DTOs.Catalog;
 using CapShop.CatalogService.Infrastructure.Repositories;
-using CapShop.Shared.Events;
 
 namespace CapShop.CatalogService.Application.Services
 {
@@ -57,9 +56,6 @@ namespace CapShop.CatalogService.Application.Services
             if (quantity <= 0) throw new InvalidOperationException("Quantity must be greater than 0.");
             return await _repo.DecreaseStockAsync(id, quantity, ct);
         }
-
-        public Task<bool> ReserveStockAsync(IEnumerable<OrderPlacedItemEvent> items, CancellationToken ct = default)
-            => _repo.ReserveStockAsync(items, ct);
 
         public Task<bool> DeleteProductAsync(int id, CancellationToken ct = default)
             => _repo.DeleteProductAsync(id, ct);

@@ -81,7 +81,7 @@ namespace CapShop.OrderService.Data
             modelBuilder.Entity<OrderSagaState>(entity =>
             {
                 entity.HasKey(x => x.CorrelationId);
-                entity.Property(x => x.CurrentState).HasMaxLength(64).IsRequired();
+                entity.Property(x => x.CurrentState).HasMaxLength(64);
                 entity.Property(x => x.OrderNumber).HasMaxLength(50).IsRequired();
                 entity.Property(x => x.UserEmail).HasMaxLength(256).IsRequired();
                 entity.Property(x => x.TotalAmount).HasPrecision(12, 2);

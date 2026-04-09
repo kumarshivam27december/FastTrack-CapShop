@@ -122,6 +122,49 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<OrderDbContext>();
     await db.Database.MigrateAsync();
+    await db.Database.ExecuteSqlRawAsync(@"
+IF OBJECT_ID(N'[dbo].[OrderSagaStates]', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[OrderSagaStates]
+    (
+        [CorrelationId] uniqueidentifier NOT NULL,
+        [CurrentState] nvarchar(64) NULL,
+        [OrderId] int NOT NULL,
+        [UserId] int NOT NULL,
+        [UserEmail] nvarchar(256) NOT NULL,
+        [OrderNumber] nvarchar(50) NOT NULL,
+        [TotalAmount] decimal(12,2) NOT NULL,
+        [RowVersion] rowversion NOT NULL,
+        CONSTRAINT [PK_OrderSagaStates] PRIMARY KEY ([CorrelationId])
+    );
+END;
+
+IF OBJECT_ID(N'[dbo].[OrderSagaStates]', N'U') IS NOT NULL
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM sys.columns
+        WHERE object_id = OBJECT_ID(N'[dbo].[OrderSagaStates]')
+          AND name = N'CurrentState'
+          AND is_nullable = 0)
+    BEGIN
+        ALTER TABLE [dbo].[OrderSagaStates] ALTER COLUMN [CurrentState] nvarchar(64) NULL;
+    END;
+
+    DELETE FROM [dbo].[OrderSagaStates]
+    WHERE [CurrentState] IS NOT NULL AND LTRIM(RTRIM([CurrentState])) = N'';
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_OrderSagaStates_CurrentState' AND object_id = OBJECT_ID(N'[dbo].[OrderSagaStates]'))
+BEGIN
+    CREATE INDEX [IX_OrderSagaStates_CurrentState] ON [dbo].[OrderSagaStates] ([CurrentState]);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_OrderSagaStates_OrderId' AND object_id = OBJECT_ID(N'[dbo].[OrderSagaStates]'))
+BEGIN
+    CREATE INDEX [IX_OrderSagaStates_OrderId] ON [dbo].[OrderSagaStates] ([OrderId]);
+END;
+");
     await CapShop.OrderService.Data.OrderDbSeeder.SeedAsync(db);
 }
 

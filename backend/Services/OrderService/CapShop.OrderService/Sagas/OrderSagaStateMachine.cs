@@ -10,7 +10,7 @@ namespace CapShop.OrderService.Sagas;
 public class OrderSagaState : SagaStateMachineInstance
 {
     public Guid CorrelationId { get; set; }
-    public string CurrentState { get; set; } = string.Empty;
+    public string? CurrentState { get; set; }
     public int OrderId { get; set; }
     public int UserId { get; set; }
     public string UserEmail { get; set; } = string.Empty;
@@ -156,16 +156,6 @@ public class OrderSagaStateMachine : MassTransitStateMachine<OrderSagaState>
             return;
         }
 
-        db.OrderStatusHistories.Add(new OrderStatusHistory
-        {
-            OrderId = order.Id,
-            FromStatus = OrderStatus.Paid,
-            ToStatus = OrderStatus.Paid,
-            Notes = "Reserve stock command published by saga"
-        });
-
-        await db.SaveChangesAsync(context.CancellationToken);
-
         await context.Publish<ReserveStockCommand>(new
         {
             context.Message.CorrelationId,
@@ -185,6 +175,16 @@ public class OrderSagaStateMachine : MassTransitStateMachine<OrderSagaState>
             }).ToList(),
             OccurredAtUtc = DateTime.UtcNow
         });
+
+        db.OrderStatusHistories.Add(new OrderStatusHistory
+        {
+            OrderId = order.Id,
+            FromStatus = OrderStatus.Paid,
+            ToStatus = OrderStatus.Paid,
+            Notes = "Reserve stock command published by saga"
+        });
+
+        await db.SaveChangesAsync(context.CancellationToken);
     }
 
     private async Task HandlePaymentFailedAsync(BehaviorContext<OrderSagaState, PaymentFailedEvent> context)

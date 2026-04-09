@@ -113,10 +113,15 @@ services:
       - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=CapShopCatalogDb;User Id=sa;Password=CapShop@12345;TrustServerCertificate=True;Encrypt=True
       - Redis__Configuration=redis:6379
       - "Redis__InstanceName=CapShop:Catalog:"
+      - RabbitMq__Host=rabbitmq
+      - RabbitMq__Username=guest
+      - RabbitMq__Password=guest
     depends_on:
       sqlserver:
         condition: service_healthy
       redis:
+        condition: service_started
+      rabbitmq:
         condition: service_started
     networks:
       - capshop-network

@@ -1,5 +1,4 @@
 ﻿using CapShop.CatalogService.DTOs.Catalog;
-using CapShop.Shared.Events;
 
 namespace CapShop.CatalogService.Application.Interfaces
 {
@@ -21,7 +20,6 @@ namespace CapShop.CatalogService.Application.Interfaces
         Task<bool> UpdateProductAsync(int id, UpdateProductDto dto, CancellationToken ct = default);
         Task<bool> UpdateStockAsync(int id, int quantity, CancellationToken ct = default);
         Task<bool> DecreaseStockAsync(int id, int quantity, CancellationToken ct = default);
-        Task<bool> ReserveStockAsync(IEnumerable<OrderPlacedItemEvent> items, CancellationToken ct = default);
         Task<bool> DeleteProductAsync(int id, CancellationToken ct = default);
     }
 }

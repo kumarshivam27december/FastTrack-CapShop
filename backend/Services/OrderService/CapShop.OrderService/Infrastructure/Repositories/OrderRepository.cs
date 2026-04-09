@@ -291,7 +291,10 @@ namespace CapShop.OrderService.Infrastructure.Repositories
             if (order.Status == OrderStatus.Cancelled)
                 throw new InvalidOperationException("Order could not be completed.");
 
-            if (order.Status == OrderStatus.PaymentPending || order.Status == OrderStatus.CheckoutStarted)
+            if (order.Status == OrderStatus.CheckoutStarted)
+                throw new InvalidOperationException("Payment has not been initiated for this order.");
+
+            if (order.Status == OrderStatus.PaymentPending)
             {
                 var paymentUpdated = await TryUpdateOrderStatusFromPaymentAsync(order);
                 if (paymentUpdated)
@@ -302,19 +305,16 @@ namespace CapShop.OrderService.Infrastructure.Repositories
 
             if (order.Status == OrderStatus.Paid)
             {
-                var finalizedSynchronously = await TryFinalizePaidOrderSynchronouslyAsync(order, userEmail);
-                if (finalizedSynchronously)
-                {
-                    order = await _db.Orders.Include(o => o.Items).FirstAsync(o => o.Id == orderId && o.UserId == userId);
-                }
+                await EnsureReserveStockCommandPublishedAsync(order, userEmail);
             }
 
-            if (order.Status != OrderStatus.Paid && order.Status != OrderStatus.Completed)
-            {
-                order = await WaitForOrderCompletionAsync(order.Id, userId, TimeSpan.FromSeconds(12));
-            }
+            order = await WaitForOrderPlacementResultAsync(order.Id, userId, TimeSpan.FromSeconds(25));
 
-            if (order.Status != OrderStatus.Paid && order.Status != OrderStatus.Completed)
+            if (order.Status == OrderStatus.Cancelled)
+                throw new InvalidOperationException("Order could not be completed.");
+
+            var placementConfirmed = await IsInventoryReservedAsync(order.Id);
+            if (!placementConfirmed)
                 throw new InvalidOperationException("Order is still being finalized.");
 
             return new CheckoutResponseDto
@@ -327,14 +327,15 @@ namespace CapShop.OrderService.Infrastructure.Repositories
             };
         }
 
-        private async Task<Order> WaitForOrderCompletionAsync(int orderId, int userId, TimeSpan timeout)
+        private async Task<Order> WaitForOrderPlacementResultAsync(int orderId, int userId, TimeSpan timeout)
         {
             var end = DateTime.UtcNow.Add(timeout);
             var current = await _db.Orders.Include(o => o.Items).FirstAsync(o => o.Id == orderId && o.UserId == userId);
 
             while (DateTime.UtcNow < end)
             {
-                if (current.Status == OrderStatus.Paid || current.Status == OrderStatus.Completed || current.Status == OrderStatus.Cancelled)
+                var placementConfirmed = await IsInventoryReservedAsync(orderId);
+                if (placementConfirmed || current.Status == OrderStatus.Cancelled)
                 {
                     return current;
                 }
@@ -350,112 +351,39 @@ namespace CapShop.OrderService.Infrastructure.Repositories
             return current;
         }
 
-        private async Task<bool> TryFinalizePaidOrderSynchronouslyAsync(Order order, string? userEmail)
+        private async Task<bool> IsInventoryReservedAsync(int orderId)
         {
-            if (order.Status != OrderStatus.Paid)
-            {
-                return false;
-            }
-
-            var sagaAlreadyStartedReservation = await _db.OrderStatusHistories.AnyAsync(h =>
-                h.OrderId == order.Id &&
-                h.FromStatus == OrderStatus.Paid &&
+            return await _db.OrderStatusHistories.AsNoTracking().AnyAsync(h =>
+                h.OrderId == orderId &&
                 h.ToStatus == OrderStatus.Paid &&
-                h.Notes == "Reserve stock command published by saga");
+                (h.Notes == "Inventory reserved. Order remains paid." ||
+                 h.Notes == "Inventory reserved via recovery reserve command."));
+        }
 
-            if (sagaAlreadyStartedReservation)
+        private async Task EnsureReserveStockCommandPublishedAsync(Order order, string? userEmail)
+        {
+            var alreadyReserved = await IsInventoryReservedAsync(order.Id);
+            if (alreadyReserved)
             {
-                return false;
+                return;
             }
 
-            var fallbackAlreadyStartedReservation = await _db.OrderStatusHistories.AnyAsync(h =>
-                h.OrderId == order.Id &&
-                h.FromStatus == OrderStatus.Paid &&
-                h.ToStatus == OrderStatus.Paid &&
-                h.Notes == "Reserve stock started by place-order fallback");
+            var lastRecoveryPublish = await _db.OrderStatusHistories
+                .Where(h =>
+                    h.OrderId == order.Id &&
+                    h.FromStatus == OrderStatus.Paid &&
+                    h.ToStatus == OrderStatus.Paid &&
+                    h.Notes == "Reserve stock command republished by place-order recovery")
+                .OrderByDescending(h => h.ChangedAtUtc)
+                .FirstOrDefaultAsync();
 
-            if (fallbackAlreadyStartedReservation)
+            if (lastRecoveryPublish is not null &&
+                DateTime.UtcNow - lastRecoveryPublish.ChangedAtUtc < TimeSpan.FromSeconds(5))
             {
-                return false;
+                return;
             }
 
-            _db.OrderStatusHistories.Add(new OrderStatusHistory
-            {
-                OrderId = order.Id,
-                FromStatus = OrderStatus.Paid,
-                ToStatus = OrderStatus.Paid,
-                Notes = "Reserve stock started by place-order fallback"
-            });
-
-            await _db.SaveChangesAsync();
-
-            var client = _httpClientFactory.CreateClient();
-            var response = await client.PostAsJsonAsync(
-                $"{_catalogBaseUrl}/catalog/internal/reserve-stock",
-                order.Items.Select(i => new
-                {
-                    ProductId = i.ProductId,
-                    Title = i.ProductName,
-                    Description = $"Product ID: {i.ProductId}",
-                    Price = i.UnitPrice,
-                    Quantity = i.Quantity,
-                    Amount = i.TotalPrice
-                }).ToList());
-
-            if (!response.IsSuccessStatusCode)
-            {
-                return false;
-            }
-
-            var reserveResult = await response.Content.ReadFromJsonAsync<ReserveStockResponse>();
-            if (reserveResult is null)
-            {
-                return false;
-            }
-
-            if (!reserveResult.Success)
-            {
-                var oldStatus = order.Status;
-                order.Status = OrderStatus.Cancelled;
-                order.UpdatedAtUtc = DateTime.UtcNow;
-
-                _db.OrderStatusHistories.Add(new OrderStatusHistory
-                {
-                    OrderId = order.Id,
-                    FromStatus = oldStatus,
-                    ToStatus = OrderStatus.Cancelled,
-                    Notes = "Synchronous reserve-stock failed during PlaceOrder"
-                });
-
-                await _db.SaveChangesAsync();
-                return true;
-            }
-
-            var fromStatus = order.Status;
-            order.Status = OrderStatus.Paid;
-            order.UpdatedAtUtc = DateTime.UtcNow;
-
-            _db.OrderStatusHistories.Add(new OrderStatusHistory
-            {
-                OrderId = order.Id,
-                FromStatus = fromStatus,
-                ToStatus = OrderStatus.Paid,
-                Notes = "Inventory reserved via synchronous fallback"
-            });
-
-            var cart = await _db.Carts
-                .Include(x => x.Items)
-                .FirstOrDefaultAsync(x => x.UserId == order.UserId);
-
-            if (cart is not null)
-            {
-                cart.Items.Clear();
-                cart.UpdatedAtUtc = DateTime.UtcNow;
-            }
-
-            await _db.SaveChangesAsync();
-
-            await _publishEndpoint.Publish<OrderPlacedEvent>(new
+            await _publishEndpoint.Publish<ReserveStockCommand>(new
             {
                 CorrelationId = Guid.NewGuid(),
                 OrderId = order.Id,
@@ -475,12 +403,15 @@ namespace CapShop.OrderService.Infrastructure.Repositories
                 OccurredAtUtc = DateTime.UtcNow
             });
 
-            return true;
-        }
+            _db.OrderStatusHistories.Add(new OrderStatusHistory
+            {
+                OrderId = order.Id,
+                FromStatus = OrderStatus.Paid,
+                ToStatus = OrderStatus.Paid,
+                Notes = "Reserve stock command republished by place-order recovery"
+            });
 
-        private sealed class ReserveStockResponse
-        {
-            public bool Success { get; set; }
+            await _db.SaveChangesAsync();
         }
 
         private sealed class PaymentStatusResponse
