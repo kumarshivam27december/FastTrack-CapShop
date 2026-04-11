@@ -9,6 +9,7 @@ pipeline {
   environment {
     DOCKERHUB_NAMESPACE = 'shivamismyname'
     IMAGE_TAG = "${BUILD_NUMBER}"
+    COMPOSE_PROJECT_NAME = 'capshop'
   }
 
   stages {
@@ -116,6 +117,7 @@ EOF
       steps {
         sh '''
           set -e
+          docker rm -f capshop-sqlserver capshop-rabbitmq capshop-redis || true
           docker compose -f docker-compose.yml -f docker-compose.ci.yml down --remove-orphans || true
           docker compose -f docker-compose.yml -f docker-compose.ci.yml pull
           docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d
