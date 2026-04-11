@@ -101,6 +101,50 @@ public interface StockReservationFailedEvent
     DateTime OccurredAtUtc { get; }
 }
 
+/// <summary>
+/// Published by OrderService when stock reservation fails after a successful payment.
+/// </summary>
+public interface RefundPaymentCommand
+{
+    Guid CorrelationId { get; }
+    int OrderId { get; }
+    int UserId { get; }
+    string UserEmail { get; }
+    string OrderNumber { get; }
+    decimal Amount { get; }
+    string? TransactionId { get; }
+    string Reason { get; }
+    DateTime OccurredAtUtc { get; }
+}
+
+/// <summary>
+/// Published by PaymentService when a refund is successfully processed.
+/// </summary>
+public interface PaymentRefundedEvent
+{
+    Guid CorrelationId { get; }
+    int OrderId { get; }
+    int UserId { get; }
+    string UserEmail { get; }
+    int PaymentId { get; }
+    decimal Amount { get; }
+    string? TransactionId { get; }
+    DateTime OccurredAtUtc { get; }
+}
+
+/// <summary>
+/// Published by PaymentService when a refund request cannot be processed.
+/// </summary>
+public interface PaymentRefundFailedEvent
+{
+    Guid CorrelationId { get; }
+    int OrderId { get; }
+    int UserId { get; }
+    string UserEmail { get; }
+    string FailureReason { get; }
+    DateTime OccurredAtUtc { get; }
+}
+
 public interface OrderPlacedItemEvent
 {
     int ProductId { get; }

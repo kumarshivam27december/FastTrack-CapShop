@@ -47,6 +47,7 @@ namespace CapShop.OrderService.Controllers
         public IActionResult Health() => Ok(new { service = "OrderService", status = "Healthy" });
 
         [HttpGet("cart")]
+        [Authorize(Policy = "CustomerOnly")]
         public async Task<IActionResult> GetCart()
         {
             var userId = GetUserIdStrict();
@@ -55,6 +56,7 @@ namespace CapShop.OrderService.Controllers
         }
 
         [HttpPost("cart/items")]
+        [Authorize(Policy = "CustomerOnly")]
         public async Task<IActionResult> AddToCart([FromBody] AddToCartRequestDto request)
         {
             var userId = GetUserIdStrict();
@@ -68,6 +70,7 @@ namespace CapShop.OrderService.Controllers
         }
 
         [HttpPut("cart/items/{id}")]
+        [Authorize(Policy = "CustomerOnly")]
         public async Task<IActionResult> UpdateCartItem(int id, [FromBody] UpdateCartItemRequestDto request)
         {
             var userId = GetUserIdStrict();
@@ -78,6 +81,7 @@ namespace CapShop.OrderService.Controllers
         }
 
         [HttpDelete("cart/items/{id}")]
+        [Authorize(Policy = "CustomerOnly")]
         public async Task<IActionResult> RemoveFromCart(int id)
         {
             var userId = GetUserIdStrict();
@@ -88,6 +92,7 @@ namespace CapShop.OrderService.Controllers
         }
 
         [HttpPost("checkout/start")]
+        [Authorize(Policy = "CustomerOnly")]
         public async Task<IActionResult> StartCheckout([FromBody] CheckoutStartRequestDto request)
         {
             var userId = GetUserIdStrict();
@@ -96,6 +101,7 @@ namespace CapShop.OrderService.Controllers
         }
 
         [HttpPost("payment/simulate")]
+        [Authorize(Policy = "CustomerOnly")]
         public async Task<IActionResult> SimulatePayment([FromBody] PaymentSimulateRequestDto request)
         {
             var userId = GetUserIdStrict();
@@ -104,6 +110,7 @@ namespace CapShop.OrderService.Controllers
         }
 
         [HttpPost("place")]
+        [Authorize(Policy = "CustomerOnly")]
         public async Task<IActionResult> PlaceOrder([FromBody] PlaceOrderRequestDto request)
         {
             var userId = GetUserIdStrict();
@@ -112,6 +119,7 @@ namespace CapShop.OrderService.Controllers
         }
 
         [HttpPut("{id}/cancel")]
+        [Authorize(Policy = "CustomerOnly")]
         public async Task<IActionResult> CancelOrder(int id)
         {
             var userId = GetUserIdStrict();
@@ -122,6 +130,7 @@ namespace CapShop.OrderService.Controllers
         }
 
         [HttpGet("my")]
+        [Authorize(Policy = "CustomerOnly")]
         public async Task<IActionResult> GetMyOrders()
         {
             var userId = GetUserIdStrict();
@@ -130,6 +139,7 @@ namespace CapShop.OrderService.Controllers
         }
 
         [HttpGet("{id}")]
+        [Authorize(Policy = "CustomerOnly")]
         public async Task<IActionResult> GetOrderById(int id)
         {
             var userId = GetUserIdStrict();

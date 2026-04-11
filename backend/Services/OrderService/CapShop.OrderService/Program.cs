@@ -100,7 +100,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("CustomerOnly", policy =>
+        policy.RequireAssertion(context =>
+            context.User.IsInRole("Customer") && !context.User.IsInRole("Admin")));
+});
 
 var app = builder.Build();
 

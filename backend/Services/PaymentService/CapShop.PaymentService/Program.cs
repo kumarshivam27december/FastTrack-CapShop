@@ -53,6 +53,7 @@ builder.Services.AddMassTransit(x =>
 {
     x.SetEndpointNameFormatter(new KebabCaseEndpointNameFormatter("payment", false));
     x.AddConsumer<OrderCreatedEventConsumer>();
+    x.AddConsumer<RefundPaymentCommandConsumer>();
 
     x.AddConfigureEndpointsCallback((context, _, cfg) =>
     {
@@ -94,7 +95,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("CustomerOnly", policy =>
+        policy.RequireAssertion(context =>
+            context.User.IsInRole("Customer") && !context.User.IsInRole("Admin")));
+});
 
 var app = builder.Build();
 

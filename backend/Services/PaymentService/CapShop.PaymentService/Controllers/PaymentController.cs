@@ -33,6 +33,7 @@ public class PaymentController : ControllerBase
     public IActionResult Health() => Ok(new { service = "PaymentService", status = "Healthy" });
 
     [HttpPost("process")]
+    [Authorize(Policy = "CustomerOnly")]
     public async Task<IActionResult> Process([FromBody] ProcessPaymentRequestDto request)
     {
         var userId = GetUserIdStrict();
@@ -41,6 +42,7 @@ public class PaymentController : ControllerBase
     }
 
     [HttpGet("{id:int}")]
+    [Authorize(Policy = "CustomerOnly")]
     public async Task<IActionResult> GetById(int id)
     {
         var payment = await _paymentService.GetByIdAsync(id);
@@ -59,6 +61,7 @@ public class PaymentController : ControllerBase
     }
 
     [HttpGet("order/{orderId:int}")]
+    [Authorize(Policy = "CustomerOnly")]
     public async Task<IActionResult> GetLatestByOrderId(int orderId)
     {
         var payment = await _paymentService.GetLatestByOrderIdAsync(orderId);

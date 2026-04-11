@@ -277,22 +277,56 @@ public class OrderSagaStateMachine : MassTransitStateMachine<OrderSagaState>
         var db = scope.ServiceProvider.GetRequiredService<OrderDbContext>();
 
         var order = await db.Orders.FirstOrDefaultAsync(x => x.Id == context.Message.OrderId, context.CancellationToken);
-        if (order is null || order.Status == OrderStatus.Cancelled || order.Status == OrderStatus.Completed)
+        if (order is null || order.Status == OrderStatus.Completed)
         {
             return;
         }
 
         var oldStatus = order.Status;
-        order.Status = OrderStatus.Cancelled;
-        order.UpdatedAtUtc = DateTime.UtcNow;
-
-        db.OrderStatusHistories.Add(new OrderStatusHistory
+        if (order.Status != OrderStatus.Cancelled)
         {
-            OrderId = order.Id,
-            FromStatus = oldStatus,
-            ToStatus = OrderStatus.Cancelled,
-            Notes = $"Stock reservation failed: {context.Message.FailureReason}"
-        });
+            order.Status = OrderStatus.Cancelled;
+            order.UpdatedAtUtc = DateTime.UtcNow;
+
+            db.OrderStatusHistories.Add(new OrderStatusHistory
+            {
+                OrderId = order.Id,
+                FromStatus = oldStatus,
+                ToStatus = OrderStatus.Cancelled,
+                Notes = $"Stock reservation failed: {context.Message.FailureReason}"
+            });
+        }
+
+        var refundAlreadyRequested = await db.OrderStatusHistories.AnyAsync(h =>
+            h.OrderId == order.Id &&
+            h.FromStatus == OrderStatus.Cancelled &&
+            h.ToStatus == OrderStatus.Cancelled &&
+            h.Notes == "Refund payment command published by saga",
+            context.CancellationToken);
+
+        if (!refundAlreadyRequested)
+        {
+            await context.Publish<RefundPaymentCommand>(new
+            {
+                context.Message.CorrelationId,
+                OrderId = order.Id,
+                UserId = order.UserId,
+                UserEmail = context.Saga.UserEmail,
+                OrderNumber = order.OrderNumber,
+                Amount = order.TotalAmount,
+                TransactionId = order.PaymentTransactionId,
+                Reason = $"Stock reservation failed: {context.Message.FailureReason}",
+                OccurredAtUtc = DateTime.UtcNow
+            });
+
+            db.OrderStatusHistories.Add(new OrderStatusHistory
+            {
+                OrderId = order.Id,
+                FromStatus = OrderStatus.Cancelled,
+                ToStatus = OrderStatus.Cancelled,
+                Notes = "Refund payment command published by saga"
+            });
+        }
 
         await db.SaveChangesAsync(context.CancellationToken);
     }

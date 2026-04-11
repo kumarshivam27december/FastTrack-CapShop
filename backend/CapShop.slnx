@@ -28,4 +28,6 @@
   <Project Path="../tests/CapShop.AuthService.Tests/CapShop.AuthService.Tests.csproj" />
   <Project Path="../tests/CapShop.CatalogService.Tests/CapShop.CatalogService.Tests.csproj" />
   <Project Path="../tests/CapShop.OrderService.Tests/CapShop.OrderService.Tests.csproj" />
+  <Project Path="../tests/CapShop.PaymentService.Tests/CapShop.PaymentService.Tests.csproj" />
+  <Project Path="../tests/CapShop.NotificationService.Tests/CapShop.NotificationService.Tests.csproj" />
 </Solution>
