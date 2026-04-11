@@ -1,0 +1,141 @@
+pipeline {
+  agent any
+
+  options {
+    timestamps()
+    disableConcurrentBuilds()
+  }
+
+  environment {
+    DOCKERHUB_NAMESPACE = 'shivamismyname'
+    IMAGE_TAG = "${BUILD_NUMBER}"
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+
+    stage('Prepare Auth Config') {
+      steps {
+        withCredentials([
+          string(credentialsId: 'auth_conn_str', variable: 'AUTH_CONN_STR'),
+          string(credentialsId: 'auth_jwt_secret', variable: 'AUTH_JWT_SECRET'),
+          string(credentialsId: 'auth_google_client_id', variable: 'AUTH_GOOGLE_CLIENT_ID'),
+          string(credentialsId: 'auth_twilio_sid', variable: 'AUTH_TWILIO_SID'),
+          string(credentialsId: 'auth_twilio_token', variable: 'AUTH_TWILIO_TOKEN'),
+          string(credentialsId: 'auth_twilio_phone', variable: 'AUTH_TWILIO_PHONE'),
+          string(credentialsId: 'auth_sender_email', variable: 'AUTH_SENDER_EMAIL'),
+          string(credentialsId: 'auth_sender_password', variable: 'AUTH_SENDER_PASSWORD')
+        ]) {
+          sh '''
+            set -e
+            cd backend/Services/AuthService/CapShop.AuthService
+
+            cat > appsettings.json <<EOF
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "${AUTH_CONN_STR}"
+  },
+  "JwtSettings": {
+    "Issuer": "CapShop.AuthService",
+    "Audience": "CapShop.Client",
+    "SecretKey": "${AUTH_JWT_SECRET}",
+    "ExpiryMinutes": 120
+  },
+  "GoogleAuth": {
+    "ClientId": "${AUTH_GOOGLE_CLIENT_ID}"
+  },
+  "Twilio": {
+    "AccountSid": "${AUTH_TWILIO_SID}",
+    "AuthToken": "${AUTH_TWILIO_TOKEN}",
+    "PhoneNumber": "${AUTH_TWILIO_PHONE}"
+  },
+  "Email": {
+    "SmtpHost": "smtp.gmail.com",
+    "SmtpPort": "587",
+    "SenderEmail": "${AUTH_SENDER_EMAIL}",
+    "SenderPassword": "${AUTH_SENDER_PASSWORD}"
+  },
+  "Otp": {
+    "ExpiryMinutes": 5,
+    "Length": 6
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*"
+}
+EOF
+          '''
+        }
+      }
+    }
+
+    stage('Sanity Check') {
+      steps {
+        sh 'docker --version && docker compose version'
+      }
+    }
+
+    stage('Build Images') {
+      steps {
+        sh '''
+          set -e
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml build
+        '''
+      }
+    }
+
+    stage('Docker Login') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub_credentials', usernameVariable: 'DOCKERHUB_USER', passwordVariable: 'DOCKERHUB_TOKEN')]) {
+          sh '''
+            set -e
+            echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USER" --password-stdin
+          '''
+        }
+      }
+    }
+
+    stage('Push Images') {
+      steps {
+        sh '''
+          set -e
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml push
+        '''
+      }
+    }
+
+    stage('Deploy Locally') {
+      steps {
+        sh '''
+          set -e
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml down --remove-orphans || true
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml pull
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d
+        '''
+      }
+    }
+
+    stage('Smoke Test') {
+      steps {
+        sh 'sleep 15 && curl -f http://localhost:5041/gateway/auth/health'
+      }
+    }
+  }
+
+  post {
+    always {
+      sh 'docker compose -f docker-compose.yml -f docker-compose.ci.yml ps || true'
+    }
+    failure {
+      sh 'docker compose -f docker-compose.yml -f docker-compose.ci.yml logs --tail=150 || true'
+    }
+  }
+}

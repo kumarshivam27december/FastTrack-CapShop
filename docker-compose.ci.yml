@@ -1,0 +1,24 @@
+services:
+  frontend:
+    image: ${DOCKERHUB_NAMESPACE}/capshop-frontend:${IMAGE_TAG}
+
+  gateway:
+    image: ${DOCKERHUB_NAMESPACE}/capshop-gateway:${IMAGE_TAG}
+
+  authservice:
+    image: ${DOCKERHUB_NAMESPACE}/capshop-authservice:${IMAGE_TAG}
+
+  catalogservice:
+    image: ${DOCKERHUB_NAMESPACE}/capshop-catalogservice:${IMAGE_TAG}
+
+  orderservice:
+    image: ${DOCKERHUB_NAMESPACE}/capshop-orderservice:${IMAGE_TAG}
+
+  adminservice:
+    image: ${DOCKERHUB_NAMESPACE}/capshop-adminservice:${IMAGE_TAG}
+
+  paymentservice:
+    image: ${DOCKERHUB_NAMESPACE}/capshop-paymentservice:${IMAGE_TAG}
+
+  notificationservice:
+    image: ${DOCKERHUB_NAMESPACE}/capshop-notificationservice:${IMAGE_TAG}
