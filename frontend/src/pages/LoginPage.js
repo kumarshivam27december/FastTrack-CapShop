@@ -123,7 +123,6 @@ export default function LoginPage() {
         )}
 
         <p className="muted">No account? <Link to="/signup">Create one</Link></p>
-        <p className="hint">Admin seed login: admin@capshop.com / Admin@123</p>
       </form>
     </section>
   );

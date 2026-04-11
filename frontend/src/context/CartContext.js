@@ -12,11 +12,15 @@ const emptyCart = {
 };
 
 export function CartProvider({ children }) {
-  const { token, isAuthenticated, isAdmin } = useAuth();
+  const { token, isAuthenticated, isAdmin, initialized } = useAuth();
   const [cart, setCart] = useState(emptyCart);
   const [loading, setLoading] = useState(false);
 
   const refreshCart = useCallback(async () => {
+    if (!initialized) {
+      return null;
+    }
+
     if (!isAuthenticated || !token || isAdmin) {
       setCart(emptyCart);
       return null;
@@ -27,13 +31,22 @@ export function CartProvider({ children }) {
       const response = await orderApi.getCart(token);
       setCart(response || emptyCart);
       return response;
+    } catch (err) {
+      if (err?.status === 401 || err?.status === 403) {
+        setCart(emptyCart);
+        return null;
+      }
+
+      throw err;
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, token, isAdmin]);
+  }, [initialized, isAuthenticated, token, isAdmin]);
 
   useEffect(() => {
-    refreshCart();
+    refreshCart().catch(() => {
+      setCart(emptyCart);
+    });
   }, [refreshCart]);
 
   const addToCart = useCallback(async (productId, quantity) => {
