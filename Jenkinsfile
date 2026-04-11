@@ -6,6 +6,10 @@ pipeline {
     disableConcurrentBuilds()
   }
 
+  triggers {
+    githubPush()
+  }
+
   environment {
     DOCKERHUB_NAMESPACE = 'shivamismyname'
     IMAGE_TAG = "${BUILD_NUMBER}"
