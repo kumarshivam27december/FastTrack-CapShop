@@ -127,7 +127,18 @@ EOF
 
     stage('Smoke Test') {
       steps {
-        sh 'sleep 15 && curl -f http://localhost:5041/gateway/auth/health'
+        sh '''
+          set -e
+          # Jenkins runs inside a container, so use a probe container in the same Docker network.
+          for i in 1 2 3 4 5 6; do
+            if docker run --rm --network capshop_capshop-network curlimages/curl:8.10.1 -fsS http://gateway:5041/gateway/auth/health; then
+              exit 0
+            fi
+            echo "Smoke test attempt $i failed, retrying..."
+            sleep 10
+          done
+          exit 1
+        '''
       }
     }
   }
