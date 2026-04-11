@@ -12,12 +12,12 @@ const emptyCart = {
 };
 
 export function CartProvider({ children }) {
-  const { token, isAuthenticated } = useAuth();
+  const { token, isAuthenticated, isAdmin } = useAuth();
   const [cart, setCart] = useState(emptyCart);
   const [loading, setLoading] = useState(false);
 
   const refreshCart = useCallback(async () => {
-    if (!isAuthenticated || !token) {
+    if (!isAuthenticated || !token || isAdmin) {
       setCart(emptyCart);
       return null;
     }
@@ -30,28 +30,40 @@ export function CartProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, token]);
+  }, [isAuthenticated, token, isAdmin]);
 
   useEffect(() => {
     refreshCart();
   }, [refreshCart]);
 
   const addToCart = useCallback(async (productId, quantity) => {
+    if (!token || isAdmin) {
+      throw new Error('Cart is not available for admin accounts.');
+    }
+
     const response = await orderApi.addToCart(token, { productId, quantity });
     setCart(response);
     return response;
-  }, [token]);
+  }, [token, isAdmin]);
 
   const updateCartItem = useCallback(async (itemId, quantity) => {
+    if (!token || isAdmin) {
+      throw new Error('Cart is not available for admin accounts.');
+    }
+
     const response = await orderApi.updateCartItem(token, itemId, { quantity });
     setCart(response);
     return response;
-  }, [token]);
+  }, [token, isAdmin]);
 
   const removeCartItem = useCallback(async (itemId) => {
+    if (!token || isAdmin) {
+      throw new Error('Cart is not available for admin accounts.');
+    }
+
     await orderApi.removeCartItem(token, itemId);
     await refreshCart();
-  }, [token, refreshCart]);
+  }, [token, isAdmin, refreshCart]);
 
   const value = useMemo(
     () => ({

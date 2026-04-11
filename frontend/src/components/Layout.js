@@ -40,8 +40,8 @@ export default function Layout() {
           <nav className="topnav">
             <NavItem to="/">Home</NavItem>
             <NavItem to="/catalog">Catalog</NavItem>
-            {isAuthenticated && <NavItem to="/orders">My Orders</NavItem>}
-            {isAuthenticated && <NavItem to="/cart">Cart ({cart.itemCount || 0})</NavItem>}
+            {isAuthenticated && !isAdmin && <NavItem to="/orders">My Orders</NavItem>}
+            {isAuthenticated && !isAdmin && <NavItem to="/cart">Cart ({cart.itemCount || 0})</NavItem>}
             {isAdmin && <NavItem to="/admin">Admin</NavItem>}
           </nav>
 

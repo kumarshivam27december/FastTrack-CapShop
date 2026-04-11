@@ -7,7 +7,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function ProductDetailPage() {
   const { id } = useParams();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isAdmin } = useAuth();
   const { addToCart } = useCart();
   const [product, setProduct] = useState(null);
   const [quantity, setQuantity] = useState(1);
@@ -64,7 +64,7 @@ export default function ProductDetailPage() {
           <p className="meta">Available stock: {product.stock}</p>
           <h2>Rs. {Number(product.price).toFixed(2)}</h2>
 
-          {isAuthenticated ? (
+          {isAuthenticated && !isAdmin ? (
             <div className="inline-actions">
               <input
                 type="number"
@@ -77,9 +77,10 @@ export default function ProductDetailPage() {
                 Add To Cart
               </button>
             </div>
-          ) : (
+          ) : !isAuthenticated ? (
             <p className="message">Login to add this item to your cart.</p>
-          )}
+          ) : null
+          }
         </div>
       </div>
     </section>

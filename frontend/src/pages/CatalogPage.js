@@ -7,7 +7,7 @@ import { useCart } from '../context/CartContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function CatalogPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isAdmin } = useAuth();
   const { addToCart } = useCart();
   const [query, setQuery] = useState('');
   const [categoryId, setCategoryId] = useState('');
@@ -145,7 +145,7 @@ export default function CatalogPage() {
               <strong>Rs. {Number(product.price).toFixed(2)}</strong>
               <div className="inline-actions">
                 <Link to={`/products/${product.id}`} className="btn btn-outline">View</Link>
-                {isAuthenticated && (
+                {isAuthenticated && !isAdmin && (
                   <button
                     type="button"
                     className="btn btn-solid"

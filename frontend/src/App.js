@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
+import CustomerRoute from './components/CustomerRoute';
 import HomePage from './pages/HomePage';
 import CatalogPage from './pages/CatalogPage';
 import ProductDetailPage from './pages/ProductDetailPage';
@@ -48,41 +49,41 @@ function App() {
                 <Route
                   path="cart"
                   element={(
-                    <ProtectedRoute>
+                    <CustomerRoute>
                       <CartPage />
-                    </ProtectedRoute>
+                    </CustomerRoute>
                   )}
                 />
                 <Route
                   path="checkout"
                   element={(
-                    <ProtectedRoute>
+                    <CustomerRoute>
                       <CheckoutPage />
-                    </ProtectedRoute>
+                    </CustomerRoute>
                   )}
                 />
                 <Route
                   path="orders"
                   element={(
-                    <ProtectedRoute>
+                    <CustomerRoute>
                       <OrdersPage />
-                    </ProtectedRoute>
+                    </CustomerRoute>
                   )}
                 />
                 <Route
                   path="orders/:id"
                   element={(
-                    <ProtectedRoute>
+                    <CustomerRoute>
                       <OrderDetailsPage />
-                    </ProtectedRoute>
+                    </CustomerRoute>
                   )}
                 />
                 <Route
                   path="orders/:id/cancel"
                   element={(
-                    <ProtectedRoute>
+                    <CustomerRoute>
                       <CancelOrderConfirmPage />
-                    </ProtectedRoute>
+                    </CustomerRoute>
                   )}
                 />
                 <Route
