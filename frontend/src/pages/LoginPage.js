@@ -122,7 +122,7 @@ export default function LoginPage() {
           <p className="hint">Google sign-in is not configured yet. Add REACT_APP_GOOGLE_CLIENT_ID.</p>
         )}
 
-        <p className="muted">No account yet? <Link to="/signup">Create one</Link></p>
+        <p className="muted">No account ? <Link to="/signup">Create one</Link></p>
       </form>
     </section>
   );
