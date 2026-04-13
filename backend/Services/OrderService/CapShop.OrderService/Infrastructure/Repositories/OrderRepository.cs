@@ -7,6 +7,7 @@ using CapShop.OrderService.DTOs.Order;
 using CapShop.OrderService.Models;
 using CapShop.OrderService.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
+using CapShop.Shared.Exceptions;
 using System.Net.Http.Json;
 using CapShop.Shared.Events;
 using MassTransit;
@@ -58,16 +59,16 @@ namespace CapShop.OrderService.Infrastructure.Repositories
             }
 
             var product = await GetCatalogProductAsync(request.ProductId);
-            if (product is null) throw new InvalidOperationException("Product not found.");
-            if (!product.InStock || product.Stock <= 0) throw new InvalidOperationException("Product is out of stock.");
-            if (request.Quantity > product.Stock) throw new InvalidOperationException("Requested quantity exceeds stock.");
+            if (product is null) throw new NotFoundException("Product not found.");
+            if (!product.InStock || product.Stock <= 0) throw new ConflictException("Product is out of stock.");
+            if (request.Quantity > product.Stock) throw new ConflictException("Requested quantity exceeds stock.");
 
             var existingItem = cart.Items.FirstOrDefault(i => i.ProductId == request.ProductId);
 
             if (existingItem != null)
             {
                 var newQty = existingItem.Quantity + request.Quantity;
-                if (newQty > product.Stock) throw new InvalidOperationException("Requested quantity exceeds stock.");
+                if (newQty > product.Stock) throw new ConflictException("Requested quantity exceeds stock.");
                 existingItem.Quantity = newQty;
                 existingItem.UnitPrice = product.Price;
             }
@@ -93,10 +94,10 @@ namespace CapShop.OrderService.Infrastructure.Repositories
         public async Task<CartResponseDto> UpdateCartItemAsync(int userId, int cartItemId, UpdateCartItemRequestDto request)
         {
             var cart = await _db.Carts.Include(c => c.Items).FirstOrDefaultAsync(c => c.UserId == userId);
-            if (cart is null) throw new InvalidOperationException("Cart not found");
+            if (cart is null) throw new NotFoundException("Cart not found");
 
             var item = cart.Items.FirstOrDefault(i => i.Id == cartItemId);
-            if (item is null) throw new InvalidOperationException("Item not in cart");
+            if (item is null) throw new NotFoundException("Item not in cart");
 
             if (request.Quantity <= 0)
             {
@@ -105,8 +106,8 @@ namespace CapShop.OrderService.Infrastructure.Repositories
             else
             {
                 var product = await GetCatalogProductAsync(item.ProductId);
-                if (product is null) throw new InvalidOperationException("Product not found.");
-                if (request.Quantity > product.Stock) throw new InvalidOperationException("Requested quantity exceeds stock.");
+                if (product is null) throw new NotFoundException("Product not found.");
+                if (request.Quantity > product.Stock) throw new ConflictException("Requested quantity exceeds stock.");
                 item.Quantity = request.Quantity;
                 item.UnitPrice = product.Price;
             }
@@ -150,7 +151,7 @@ namespace CapShop.OrderService.Infrastructure.Repositories
         public async Task<AddressResponseDto> SaveAddressAsync(int userId, AddressRequestDto request)
         {
             if (string.IsNullOrWhiteSpace(request.Pincode) || request.Pincode.Length != 6 || !request.Pincode.All(char.IsDigit))
-                throw new InvalidOperationException("Invalid pincode format");
+                throw new ValidationException("Invalid pincode format");
 
             var address = new Address
             {
@@ -173,12 +174,12 @@ namespace CapShop.OrderService.Infrastructure.Repositories
         public async Task<CheckoutResponseDto> StartCheckoutAsync(int userId, CheckoutStartRequestDto request)
         {
             var cart = await _db.Carts.Include(c => c.Items).FirstOrDefaultAsync(c => c.UserId == userId);
-            if (cart is null || !cart.Items.Any()) throw new InvalidOperationException("Cart is empty");
+            if (cart is null || !cart.Items.Any()) throw new ValidationException("Cart is empty");
 
             if (string.IsNullOrWhiteSpace(request.Address.Pincode) ||
                 request.Address.Pincode.Length != 6 ||
                 !request.Address.Pincode.All(char.IsDigit))
-                throw new InvalidOperationException("Invalid pincode format");
+                throw new ValidationException("Invalid pincode format");
 
             var address = new Address
             {
@@ -241,10 +242,10 @@ namespace CapShop.OrderService.Infrastructure.Repositories
         public async Task<PaymentResponseDto> SimulatePaymentAsync(int userId, string? userEmail, PaymentSimulateRequestDto request)
         {
             var order = await _db.Orders.FirstOrDefaultAsync(o => o.Id == request.OrderId && o.UserId == userId);
-            if (order is null) throw new InvalidOperationException("Order not found.");
+            if (order is null) throw new NotFoundException("Order not found.");
 
             if (order.Status != OrderStatus.CheckoutStarted && order.Status != OrderStatus.PaymentPending)
-                throw new InvalidOperationException("Payment can only be simulated for checkout-started orders.");
+                throw new ConflictException("Payment can only be simulated for checkout-started orders.");
 
             var oldStatus = order.Status;
             order.Status = OrderStatus.PaymentPending;
@@ -286,13 +287,13 @@ namespace CapShop.OrderService.Infrastructure.Repositories
         public async Task<CheckoutResponseDto> PlaceOrderAsync(int userId, string? userEmail, int orderId)
         {
             var order = await _db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == orderId && o.UserId == userId);
-            if (order is null) throw new InvalidOperationException("Order not found");
+            if (order is null) throw new NotFoundException("Order not found");
 
             if (order.Status == OrderStatus.Cancelled)
-                throw new InvalidOperationException("Order could not be completed.");
+                throw new ConflictException("Order could not be completed.");
 
             if (order.Status == OrderStatus.CheckoutStarted)
-                throw new InvalidOperationException("Payment has not been initiated for this order.");
+                throw new ConflictException("Payment has not been initiated for this order.");
 
             if (order.Status == OrderStatus.PaymentPending)
             {
@@ -311,11 +312,11 @@ namespace CapShop.OrderService.Infrastructure.Repositories
             order = await WaitForOrderPlacementResultAsync(order.Id, userId, TimeSpan.FromSeconds(25));
 
             if (order.Status == OrderStatus.Cancelled)
-                throw new InvalidOperationException("Order could not be completed.");
+                throw new ConflictException("Order could not be completed.");
 
             var placementConfirmed = await IsInventoryReservedAsync(order.Id);
             if (!placementConfirmed)
-                throw new InvalidOperationException("Order is still being finalized.");
+                throw new ConflictException("Order is still being finalized.");
 
             return new CheckoutResponseDto
             {
@@ -554,7 +555,7 @@ namespace CapShop.OrderService.Infrastructure.Repositories
             if (order.Status == OrderStatus.Packed || order.Status == OrderStatus.Shipped ||
                 order.Status == OrderStatus.Delivered || order.Status == OrderStatus.Cancelled ||
                 order.Status == OrderStatus.Completed)
-                throw new InvalidOperationException("Cannot cancel orders already packed or shipped");
+                throw new ConflictException("Cannot cancel orders already packed or shipped");
 
             var oldStatus = order.Status;
             order.Status = OrderStatus.Cancelled;

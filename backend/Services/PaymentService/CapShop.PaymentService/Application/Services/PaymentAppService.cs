@@ -2,6 +2,7 @@ using CapShop.PaymentService.Application.Interfaces;
 using CapShop.PaymentService.DTOs;
 using CapShop.PaymentService.Infrastructure.Repositories;
 using CapShop.PaymentService.Models;
+using CapShop.Shared.Exceptions;
 
 namespace CapShop.PaymentService.Application.Services;
 
@@ -18,12 +19,12 @@ public class PaymentAppService : IPaymentAppService
     {
         if (request.OrderId <= 0)
         {
-            throw new InvalidOperationException("OrderId must be greater than zero.");
+            throw new ValidationException("OrderId must be greater than zero.");
         }
 
         if (request.Amount <= 0)
         {
-            throw new InvalidOperationException("Amount must be greater than zero.");
+            throw new ValidationException("Amount must be greater than zero.");
         }
 
         var isSuccess = request.SimulateSuccess;
@@ -59,7 +60,7 @@ public class PaymentAppService : IPaymentAppService
     {
         if (string.IsNullOrWhiteSpace(request.Status) || !PaymentStatus.IsValid(request.Status))
         {
-            throw new InvalidOperationException("Invalid payment status.");
+            throw new ValidationException("Invalid payment status.");
         }
 
         var updated = await _paymentRepository.UpdateStatusAsync(id, request.Status, request.FailureReason);

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using CapShop.Shared.Exceptions;
 
 namespace CapShop.PaymentService.Middleware;
 
@@ -18,6 +19,10 @@ public class GlobalExceptionMiddleware
         try
         {
             await _next(context);
+        }
+        catch (AppException ex)
+        {
+            await WriteErrorAsync(context, ex.StatusCode, ex.Message);
         }
         catch (UnauthorizedAccessException ex)
         {
