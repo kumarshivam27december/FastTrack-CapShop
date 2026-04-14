@@ -1,6 +1,7 @@
 using System.Text;
 using CapShop.CatalogService.Application.Interfaces;
 using CapShop.CatalogService.Application.Services;
+using CapShop.CatalogService.Configuration;
 using CapShop.CatalogService.Consumers;
 using CapShop.CatalogService.Data;
 using CapShop.CatalogService.Infrastructure.Repositories;
@@ -58,10 +59,20 @@ builder.Services.AddStackExchangeRedisCache(options =>
     options.InstanceName = builder.Configuration["Redis:InstanceName"] ?? "CapShop:Catalog:";
 });
 
+builder.Services.Configure<OllamaOptions>(builder.Configuration.GetSection("Ollama"));
+builder.Services.AddHttpClient("ollama", (sp, client) =>
+{
+    var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<OllamaOptions>>().Value;
+    var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl) ? "http://localhost:11434" : options.BaseUrl;
+    client.BaseAddress = new Uri(baseUrl.EndsWith('/') ? baseUrl : $"{baseUrl}/");
+    client.Timeout = TimeSpan.FromSeconds(Math.Clamp(options.TimeoutSeconds, 10, 180));
+});
+
 builder.Services.AddScoped<ICatalogRepository, CatalogRepository>();
 builder.Services.AddScoped<IProductAppService, ProductAppService>();
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<ICategoryAppService, CategoryAppService>();
+builder.Services.AddScoped<IInventoryAssistantService, InventoryAssistantService>();
 
 builder.Services.AddMassTransit(x =>
 {

@@ -5,6 +5,7 @@ import AdminRoute from './components/AdminRoute';
 import CustomerRoute from './components/CustomerRoute';
 import HomePage from './pages/HomePage';
 import CatalogPage from './pages/CatalogPage';
+import CatalogAssistantPage from './pages/CatalogAssistantPage';
 import ProductDetailPage from './pages/ProductDetailPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
@@ -39,6 +40,14 @@ function App() {
               <Route path="/" element={<Layout />}>
                 <Route index element={<HomePage />} />
                 <Route path="catalog" element={<CatalogPage />} />
+                <Route
+                  path="assistant"
+                  element={(
+                    <ProtectedRoute>
+                      <CatalogAssistantPage />
+                    </ProtectedRoute>
+                  )}
+                />
                 <Route path="products/:id" element={<ProductDetailPage />} />
                 <Route path="login" element={<LoginPage />} />
                 <Route path="signup" element={<SignupPage />} />
