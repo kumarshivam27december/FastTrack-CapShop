@@ -116,6 +116,9 @@ services:
       - RabbitMq__Host=rabbitmq
       - RabbitMq__Username=guest
       - RabbitMq__Password=guest
+      - Ollama__BaseUrl=http://host.docker.internal:11434
+      - Ollama__Model=gemma2:2b
+      - Ollama__TimeoutSeconds=60
     depends_on:
       sqlserver:
         condition: service_healthy
