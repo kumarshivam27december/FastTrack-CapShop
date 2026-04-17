@@ -2,6 +2,7 @@ using CapShop.PaymentService.Application.Services;
 using CapShop.PaymentService.DTOs;
 using CapShop.PaymentService.Infrastructure.Repositories;
 using CapShop.PaymentService.Models;
+using CapShop.Shared.Exceptions;
 using Moq;
 
 namespace CapShop.PaymentService.Tests;
@@ -21,7 +22,7 @@ public class PaymentAppServiceTests
             SimulateSuccess = true
         });
 
-        Assert.ThrowsAsync<InvalidOperationException>(async () => await action());
+        Assert.ThrowsAsync<ValidationException>(async () => await action());
     }
 
     [Test]
@@ -37,7 +38,7 @@ public class PaymentAppServiceTests
             SimulateSuccess = true
         });
 
-        Assert.ThrowsAsync<InvalidOperationException>(async () => await action());
+        Assert.ThrowsAsync<ValidationException>(async () => await action());
     }
 
     [Test]
@@ -103,6 +104,6 @@ public class PaymentAppServiceTests
             Status = "Unknown"
         });
 
-        Assert.ThrowsAsync<InvalidOperationException>(async () => await action());
+        Assert.ThrowsAsync<ValidationException>(async () => await action());
     }
 }
