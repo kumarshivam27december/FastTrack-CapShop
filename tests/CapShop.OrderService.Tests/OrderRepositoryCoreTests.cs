@@ -5,6 +5,7 @@ using CapShop.OrderService.Models;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using CapShop.Shared.Exceptions;
 using Moq;
 using System.Net;
 using System.Net.Http;
@@ -69,7 +70,7 @@ public class OrderRepositoryCoreTests
             Phone = "9999999999"
         });
 
-        Assert.ThrowsAsync<InvalidOperationException>(async () => await action());
+        Assert.ThrowsAsync<ValidationException>(async () => await action());
     }
 
     [Test]
@@ -110,7 +111,7 @@ public class OrderRepositoryCoreTests
 
         var action = async () => await sut.CancelOrderAsync(50, 4);
 
-        Assert.ThrowsAsync<InvalidOperationException>(async () => await action());
+        Assert.ThrowsAsync<ConflictException>(async () => await action());
     }
 
     [Test]
