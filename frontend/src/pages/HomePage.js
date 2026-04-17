@@ -29,8 +29,7 @@ export default function HomePage() {
         <p className="eyebrow">Gateway Powered Storefront</p>
         <h1>Shop Fast. Track Smart. Manage Everything.</h1>
         <p>
-          Built directly over your Auth, Catalog, Order, and Admin microservices through the
-          gateway. No mock APIs, no placeholders.
+         Experience a unified commerce engine powered by distributed microservices. From secure identity management to real-time inventory synchronization, our architecture ensures a seamless, high-performance shopping journey through a single, secure gateway.
         </p>
         <div className="hero-actions">
           <Link to="/catalog" className="btn btn-solid">Browse Catalog</Link>
