@@ -78,7 +78,7 @@ pipeline {
             },
             "AllowedHosts": "*"
           }
-          EOF
+EOF
           '''
         }
       }
@@ -97,7 +97,7 @@ pipeline {
               "KeySecret": "${RAZORPAY_KEY_SECRET}"
             }
           }
-          EOF
+EOF
         '''
       }
     }
