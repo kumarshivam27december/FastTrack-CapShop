@@ -18,7 +18,7 @@ pipeline {
     RAZORPAY_KEY_SECRET = credentials('razorpay_key_secret')
   }
 
-  stages {
+  stages { 
     stage('Checkout') {
       steps {
         checkout scm

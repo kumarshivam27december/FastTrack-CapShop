@@ -11,9 +11,10 @@ namespace CapShop.CatalogService.Infrastructure.Repositories
         private readonly CatalogDbContext _dbContext;
         private readonly IDistributedCache _cache;
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-        private const string CacheVersionKey = "catalog:version";
         private const string CategoryListCacheKey = "catalog:categories:all";
         private const string CategoryItemCachePrefix = "catalog:category";
+        private const string FeaturedCacheKey = "catalog:featured";
+        private const string SearchCacheVersionKey = "catalog:version:search";
 
         public CategoryRepository(CatalogDbContext dbContext, IDistributedCache cache)
         {
@@ -23,9 +24,7 @@ namespace CapShop.CatalogService.Infrastructure.Repositories
 
         public async Task<List<Category>> GetAllAsync(CancellationToken ct = default)
         {
-            var version = await GetCacheVersionAsync(ct);
-            var cacheKey = BuildKey(version, CategoryListCacheKey);
-            var cached = await _cache.GetStringAsync(cacheKey, ct);
+            var cached = await _cache.GetStringAsync(CategoryListCacheKey, ct);
             if (!string.IsNullOrWhiteSpace(cached))
             {
                 var categories = JsonSerializer.Deserialize<List<Category>>(cached, JsonOptions);
@@ -41,7 +40,7 @@ namespace CapShop.CatalogService.Infrastructure.Repositories
                 .ToListAsync(ct);
 
             await _cache.SetStringAsync(
-                cacheKey,
+                CategoryListCacheKey,
                 JsonSerializer.Serialize(result, JsonOptions),
                 new DistributedCacheEntryOptions
                 {
@@ -54,8 +53,7 @@ namespace CapShop.CatalogService.Infrastructure.Repositories
 
         public async Task<Category?> GetByIdAsync(int id, CancellationToken ct = default)
         {
-            var version = await GetCacheVersionAsync(ct);
-            var cacheKey = BuildKey(version, $"{CategoryItemCachePrefix}:{id}");
+            var cacheKey = BuildCategoryItemCacheKey(id);
             var cached = await _cache.GetStringAsync(cacheKey, ct);
             if (!string.IsNullOrWhiteSpace(cached))
             {
@@ -87,7 +85,7 @@ namespace CapShop.CatalogService.Infrastructure.Repositories
         {
             _dbContext.Categories.Add(category);
             await _dbContext.SaveChangesAsync(ct);
-            await InvalidateCatalogCacheAsync(ct);
+            await InvalidateCategoryCachesAsync(category.Id, ct);
             return category;
         }
 
@@ -95,41 +93,33 @@ namespace CapShop.CatalogService.Infrastructure.Repositories
         {
             _dbContext.Categories.Update(category);
             await _dbContext.SaveChangesAsync(ct);
-            await InvalidateCatalogCacheAsync(ct);
+            await InvalidateCategoryCachesAsync(category.Id, ct);
         }
 
         public async Task DeleteAsync(Category category, CancellationToken ct = default)
         {
+            var deletedCategoryId = category.Id;
             _dbContext.Categories.Remove(category);
             await _dbContext.SaveChangesAsync(ct);
-            await InvalidateCatalogCacheAsync(ct);
+            await InvalidateCategoryCachesAsync(deletedCategoryId, ct);
         }
 
-        private async Task<string> GetCacheVersionAsync(CancellationToken ct)
+        private static string BuildCategoryItemCacheKey(int id)
+            => $"{CategoryItemCachePrefix}:{id}";
+
+        private async Task InvalidateCategoryCachesAsync(int categoryId, CancellationToken ct)
         {
-            var version = await _cache.GetStringAsync(CacheVersionKey, ct);
-            if (!string.IsNullOrWhiteSpace(version))
+            await _cache.RemoveAsync(CategoryListCacheKey, ct);
+
+            if (categoryId > 0)
             {
-                return version;
+                await _cache.RemoveAsync(BuildCategoryItemCacheKey(categoryId), ct);
             }
 
-            version = "1";
+            // Category metadata can affect featured/search payloads (category name/description in DTOs).
+            await _cache.RemoveAsync(FeaturedCacheKey, ct);
             await _cache.SetStringAsync(
-                CacheVersionKey,
-                version,
-                new DistributedCacheEntryOptions
-                {
-                    AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(1)
-                },
-                ct);
-
-            return version;
-        }
-
-        private async Task InvalidateCatalogCacheAsync(CancellationToken ct)
-        {
-            await _cache.SetStringAsync(
-                CacheVersionKey,
+                SearchCacheVersionKey,
                 Guid.NewGuid().ToString("N"),
                 new DistributedCacheEntryOptions
                 {
@@ -137,8 +127,5 @@ namespace CapShop.CatalogService.Infrastructure.Repositories
                 },
                 ct);
         }
-
-        private static string BuildKey(string version, string suffix)
-            => $"catalog:{version}:{suffix}";
     }
 }
