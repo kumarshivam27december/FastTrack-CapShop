@@ -5,6 +5,7 @@ namespace CapShop.AuthService.Models
 {
     public class User
     {
+        //this class represents the User entity in the database and contains properties for user information such as FullName, Email, Phone, AvatarUrl, PasswordHash, IsGoogleAccount, IsActive, CreatedAtUtc, and fields related to 2FA such as IsSmsOtpEnabled, IsEmailOtpEnabled, IsAuthenticatorEnabled, AuthenticatorSecret, CurrentOtp, OtpExpiryUtc, and LastOtpSentUtc as well as a navigation property for the many-to-many relationship with Role through UserRole which allows us to easily access the roles assigned to a user when querying the database using Entity Framework Core
         public int Id { get; set; }
         public string FullName { get; set; } = string.Empty;
 

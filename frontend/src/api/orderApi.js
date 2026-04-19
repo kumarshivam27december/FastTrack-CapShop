@@ -8,6 +8,10 @@ export const orderApi = {
   removeCartItem: (token, itemId) => apiRequest(`/orders/cart/items/${itemId}`, { method: 'DELETE', token }),
   startCheckout: (token, payload) =>
     apiRequest('/orders/checkout/start', { method: 'POST', token, body: payload }),
+  createPaymentIntent: (token, payload) =>
+    apiRequest('/orders/payment/create-intent', { method: 'POST', token, body: payload }),
+  verifyPayment: (token, payload) =>
+    apiRequest('/orders/payment/verify', { method: 'POST', token, body: payload }),
   simulatePayment: (token, payload) =>
     apiRequest('/orders/payment/simulate', { method: 'POST', token, body: payload }),
   placeOrder: (token, orderId) => apiRequest('/orders/place', { method: 'POST', token, body: { orderId } }),

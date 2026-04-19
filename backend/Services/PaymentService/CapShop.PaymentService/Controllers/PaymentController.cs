@@ -41,6 +41,22 @@ public class PaymentController : ControllerBase
         return Ok(response);
     }
 
+    [HttpPost("internal/razorpay/create-order")]
+    [AllowAnonymous]
+    public async Task<IActionResult> CreateRazorpayOrder([FromBody] CreateRazorpayOrderRequestDto request, CancellationToken cancellationToken)
+    {
+        var response = await _paymentService.CreateRazorpayOrderAsync(request, cancellationToken);
+        return Ok(response);
+    }
+
+    [HttpPost("internal/razorpay/verify")]
+    [AllowAnonymous]
+    public async Task<IActionResult> VerifyRazorpayPayment([FromBody] VerifyRazorpayPaymentRequestDto request, CancellationToken cancellationToken)
+    {
+        var response = await _paymentService.VerifyRazorpayPaymentAsync(request, cancellationToken);
+        return Ok(response);
+    }
+
     [HttpGet("{id:int}")]
     [Authorize(Policy = "CustomerOnly")]
     public async Task<IActionResult> GetById(int id)

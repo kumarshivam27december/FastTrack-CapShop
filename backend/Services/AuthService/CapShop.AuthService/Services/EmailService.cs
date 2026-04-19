@@ -1,15 +1,12 @@
 using System.Net;
 using System.Net.Mail;
-
+using CapShop.AuthService.Services.Interfaces;
 namespace CapShop.AuthService.Services
 {
-    public interface IEmailService
-    {
-        Task SendOtpAsync(string email, string otp);
-    }
-
+   
     public class EmailService : IEmailService
     {
+        // dependency injection of configuration and logger
         private readonly IConfiguration _configuration;
         private readonly ILogger<EmailService> _logger;
 
@@ -18,7 +15,7 @@ namespace CapShop.AuthService.Services
             _configuration = configuration;
             _logger = logger;
         }
-
+        //sending OTP via email using SMTP client and credentials from configuration and logging the process and any errors that occur during sending the email and also ensuring that the email body is well formatted and contains necessary information about the OTP and its validity period
         public async Task SendOtpAsync(string email, string otp)
         {
             try

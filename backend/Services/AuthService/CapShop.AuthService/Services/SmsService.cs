@@ -1,16 +1,12 @@
 using Twilio;
 using Twilio.Rest.Api.V2010.Account;
 using Twilio.Types;
-
+using CapShop.AuthService.Services.Interfaces;
 namespace CapShop.AuthService.Services
 {
-    public interface ISmsService
-    {
-        Task SendOtpAsync(string phoneNumber, string otp);
-    }
-
     public class SmsService : ISmsService
     {
+        // constructor based dependency injection of configuration and logger
         private readonly IConfiguration _configuration;
         private readonly ILogger<SmsService> _logger;
 
@@ -19,6 +15,9 @@ namespace CapShop.AuthService.Services
             _configuration = configuration;
             _logger = logger;
         }
+
+
+        // Method to send OTP via SMS using Twilio API
 
         public async Task SendOtpAsync(string phoneNumber, string otp)
         {
@@ -64,6 +63,7 @@ namespace CapShop.AuthService.Services
             }
         }
 
+        // Helper method to normalize phone numbers to E.164 format -> +[CountryCode][SubscriberNumber]
         private static string NormalizePhoneNumber(string input)
         {
             if (string.IsNullOrWhiteSpace(input))

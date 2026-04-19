@@ -100,6 +100,24 @@ namespace CapShop.OrderService.Controllers
             return Ok(checkout);
         }
 
+        [HttpPost("payment/create-intent")]
+        [Authorize(Policy = "CustomerOnly")]
+        public async Task<IActionResult> CreatePaymentIntent([FromBody] CreatePaymentIntentRequestDto request)
+        {
+            var userId = GetUserIdStrict();
+            var payment = await _orderService.CreatePaymentIntentAsync(userId, GetUserEmail(), request);
+            return Ok(payment);
+        }
+
+        [HttpPost("payment/verify")]
+        [Authorize(Policy = "CustomerOnly")]
+        public async Task<IActionResult> VerifyPayment([FromBody] VerifyPaymentRequestDto request)
+        {
+            var userId = GetUserIdStrict();
+            var payment = await _orderService.VerifyPaymentAsync(userId, GetUserEmail(), request);
+            return Ok(payment);
+        }
+
         [HttpPost("payment/simulate")]
         [Authorize(Policy = "CustomerOnly")]
         public async Task<IActionResult> SimulatePayment([FromBody] PaymentSimulateRequestDto request)

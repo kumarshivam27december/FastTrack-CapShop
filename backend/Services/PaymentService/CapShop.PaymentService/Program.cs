@@ -1,7 +1,9 @@
 using System.Text;
 using CapShop.PaymentService.Application.Interfaces;
 using CapShop.PaymentService.Application.Services;
+using CapShop.PaymentService.Configuration;
 using CapShop.PaymentService.Data;
+using CapShop.PaymentService.Infrastructure.Gateways;
 using CapShop.PaymentService.Infrastructure.Repositories;
 using CapShop.PaymentService.Middleware;
 using CapShop.PaymentService.Consumers;
@@ -48,6 +50,8 @@ builder.Services.AddDbContext<PaymentDbContext>(opts =>
 
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IPaymentAppService, PaymentAppService>();
+builder.Services.Configure<RazorpayOptions>(builder.Configuration.GetSection(RazorpayOptions.SectionName));
+builder.Services.AddHttpClient<IRazorpayGatewayService, RazorpayGatewayService>();
 
 builder.Services.AddMassTransit(x =>
 {

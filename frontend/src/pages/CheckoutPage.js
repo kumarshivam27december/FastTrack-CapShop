@@ -4,6 +4,23 @@ import { orderApi } from '../api/orderApi';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 
+const RAZORPAY_SCRIPT = 'https://checkout.razorpay.com/v1/checkout.js';
+
+async function loadRazorpayScript() {
+  if (window.Razorpay) {
+    return true;
+  }
+
+  return new Promise((resolve) => {
+    const script = document.createElement('script');
+    script.src = RAZORPAY_SCRIPT;
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
+
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const { token } = useAuth();
@@ -18,7 +35,6 @@ export default function CheckoutPage() {
     phone: ''
   });
   const [paymentMethod, setPaymentMethod] = useState('UPI');
-  const [simulateSuccess, setSimulateSuccess] = useState(true);
   const [checkoutInfo, setCheckoutInfo] = useState(null);
   const [paymentInfo, setPaymentInfo] = useState(null);
   const [orderInfo, setOrderInfo] = useState(null);
@@ -83,30 +99,73 @@ export default function CheckoutPage() {
     }
   }
 
-  async function handleSimulatePayment() {
+  async function handleRazorpayPayment() {
     if (!checkoutInfo) return;
 
     setBusy(true);
     setError('');
-    setPaymentRequested(true);
 
     try {
-      const response = await orderApi.simulatePayment(token, {
+      const loaded = await loadRazorpayScript();
+      if (!loaded) {
+        throw new Error('Unable to load Razorpay checkout script.');
+      }
+
+      const intent = await orderApi.createPaymentIntent(token, {
         orderId: checkoutInfo.orderId,
         paymentMethod,
-        simulateSuccess
+        currency: 'INR'
       });
 
+      const verifiedPayment = await new Promise((resolve, reject) => {
+        const razorpay = new window.Razorpay({
+          key: intent.keyId,
+          amount: intent.amount,
+          currency: intent.currency,
+          name: 'CapShop',
+          description: `Order ${checkoutInfo.orderNumber}`,
+          order_id: intent.razorpayOrderId,
+          prefill: {
+            name: address.fullName,
+            contact: address.phone
+          },
+          theme: {
+            color: '#2f6f58'
+          },
+          handler: async (paymentResult) => {
+            try {
+              const verifyResponse = await orderApi.verifyPayment(token, {
+                orderId: checkoutInfo.orderId,
+                razorpayOrderId: paymentResult.razorpay_order_id,
+                razorpayPaymentId: paymentResult.razorpay_payment_id,
+                razorpaySignature: paymentResult.razorpay_signature
+              });
+
+              resolve(verifyResponse);
+            } catch (verifyError) {
+              reject(verifyError);
+            }
+          },
+          modal: {
+            ondismiss: () => reject(new Error('Payment popup closed before completion.'))
+          }
+        });
+
+        razorpay.open();
+      });
+
+      setPaymentRequested(true);
+
       setPaymentInfo({
-        ...response,
-        success: true,
-        message: 'Payment initiated. Finalizing your order...'
+        transactionId: verifiedPayment.transactionId,
+        success: verifiedPayment.verified,
+        message: verifiedPayment.message
       });
 
       try {
         const placed = await placeOrderWithRetry(checkoutInfo.orderId);
         setPaymentInfo({
-          ...response,
+          transactionId: verifiedPayment.transactionId,
           success: true,
           message: 'Payment successful'
         });
@@ -121,9 +180,9 @@ export default function CheckoutPage() {
         }
 
         setPaymentInfo({
-          ...response,
+          transactionId: verifiedPayment.transactionId,
           success: true,
-          message: 'Payment is still processing. Please use Place Order. No need to simulate again.'
+          message: 'Payment is still processing. Please use Place Order. No need to pay again.'
         });
       }
     } catch (err) {
@@ -190,21 +249,11 @@ export default function CheckoutPage() {
                 <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
                   <option value="UPI">UPI</option>
                   <option value="Card">Card</option>
-                  <option value="COD">COD</option>
                 </select>
               </label>
 
-              <label className="inline-actions">
-                <input
-                  type="checkbox"
-                  checked={simulateSuccess}
-                  onChange={(e) => setSimulateSuccess(e.target.checked)}
-                />
-                Simulate success
-              </label>
-
-              <button type="button" className="btn btn-outline" onClick={handleSimulatePayment} disabled={busy}>
-                Simulate Payment
+              <button type="button" className="btn btn-outline" onClick={handleRazorpayPayment} disabled={busy}>
+                Pay with Razorpay (Test)
               </button>
 
               {paymentInfo && (

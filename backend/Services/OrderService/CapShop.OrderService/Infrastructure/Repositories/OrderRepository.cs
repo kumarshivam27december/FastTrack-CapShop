@@ -239,6 +239,125 @@ namespace CapShop.OrderService.Infrastructure.Repositories
             };
         }
 
+        public async Task<PaymentIntentResponseDto> CreatePaymentIntentAsync(int userId, string? userEmail, CreatePaymentIntentRequestDto request)
+        {
+            var order = await _db.Orders.FirstOrDefaultAsync(o => o.Id == request.OrderId && o.UserId == userId);
+            if (order is null)
+            {
+                throw new NotFoundException("Order not found.");
+            }
+
+            if (order.Status != OrderStatus.CheckoutStarted && order.Status != OrderStatus.PaymentPending)
+            {
+                throw new ConflictException("Payment can only be initiated for checkout-started orders.");
+            }
+
+            if (order.Status != OrderStatus.PaymentPending)
+            {
+                var oldStatus = order.Status;
+                order.Status = OrderStatus.PaymentPending;
+                order.PaymentMethod = request.PaymentMethod;
+                order.UpdatedAtUtc = DateTime.UtcNow;
+
+                _db.Orders.Update(order);
+                _db.OrderStatusHistories.Add(new OrderStatusHistory
+                {
+                    OrderId = order.Id,
+                    FromStatus = oldStatus,
+                    ToStatus = OrderStatus.PaymentPending,
+                    Notes = $"Payment intent created via {request.PaymentMethod}"
+                });
+                await _db.SaveChangesAsync();
+            }
+
+            var client = _httpClientFactory.CreateClient();
+            var response = await client.PostAsJsonAsync(
+                $"{_paymentBaseUrl}/payment/internal/razorpay/create-order",
+                new
+                {
+                    OrderId = order.Id,
+                    UserId = order.UserId,
+                    UserEmail = userEmail ?? string.Empty,
+                    Amount = order.TotalAmount,
+                    Currency = request.Currency,
+                    PaymentMethod = request.PaymentMethod
+                });
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var reason = await response.Content.ReadAsStringAsync();
+                throw new ConflictException($"Unable to create Razorpay payment intent: {reason}");
+            }
+
+            var payload = await response.Content.ReadFromJsonAsync<PaymentIntentServiceResponse>();
+            if (payload is null || string.IsNullOrWhiteSpace(payload.RazorpayOrderId))
+            {
+                throw new ConflictException("PaymentService returned an invalid payment intent response.");
+            }
+
+            return new PaymentIntentResponseDto
+            {
+                OrderId = payload.OrderId,
+                RazorpayOrderId = payload.RazorpayOrderId,
+                Amount = payload.Amount,
+                Currency = payload.Currency,
+                KeyId = payload.KeyId,
+                Message = payload.Message
+            };
+        }
+
+        public async Task<VerifyPaymentResponseDto> VerifyPaymentAsync(int userId, string? userEmail, VerifyPaymentRequestDto request)
+        {
+            var order = await _db.Orders.FirstOrDefaultAsync(o => o.Id == request.OrderId && o.UserId == userId);
+            if (order is null)
+            {
+                throw new NotFoundException("Order not found.");
+            }
+
+            if (order.Status != OrderStatus.PaymentPending && order.Status != OrderStatus.Paid)
+            {
+                throw new ConflictException("Payment verification is only available for payment-pending orders.");
+            }
+
+            var client = _httpClientFactory.CreateClient();
+            var response = await client.PostAsJsonAsync(
+                $"{_paymentBaseUrl}/payment/internal/razorpay/verify",
+                new
+                {
+                    OrderId = order.Id,
+                    UserId = order.UserId,
+                    UserEmail = userEmail ?? string.Empty,
+                    RazorpayOrderId = request.RazorpayOrderId,
+                    RazorpayPaymentId = request.RazorpayPaymentId,
+                    RazorpaySignature = request.RazorpaySignature
+                });
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var reason = await response.Content.ReadAsStringAsync();
+                throw new ConflictException($"Unable to verify payment: {reason}");
+            }
+
+            var payload = await response.Content.ReadFromJsonAsync<VerifyPaymentServiceResponse>();
+            if (payload is null)
+            {
+                throw new ConflictException("PaymentService returned an invalid verification response.");
+            }
+
+            if (payload.Verified)
+            {
+                await TryUpdateOrderStatusFromPaymentAsync(order);
+            }
+
+            return new VerifyPaymentResponseDto
+            {
+                OrderId = payload.OrderId,
+                Verified = payload.Verified,
+                TransactionId = payload.TransactionId,
+                Message = payload.Message
+            };
+        }
+
         public async Task<PaymentResponseDto> SimulatePaymentAsync(int userId, string? userEmail, PaymentSimulateRequestDto request)
         {
             var order = await _db.Orders.FirstOrDefaultAsync(o => o.Id == request.OrderId && o.UserId == userId);
@@ -421,6 +540,24 @@ namespace CapShop.OrderService.Infrastructure.Repositories
             public string Status { get; set; } = string.Empty;
             public string? TransactionId { get; set; }
             public string? FailureReason { get; set; }
+        }
+
+        private sealed class PaymentIntentServiceResponse
+        {
+            public int OrderId { get; set; }
+            public string RazorpayOrderId { get; set; } = string.Empty;
+            public int Amount { get; set; }
+            public string Currency { get; set; } = "INR";
+            public string KeyId { get; set; } = string.Empty;
+            public string Message { get; set; } = string.Empty;
+        }
+
+        private sealed class VerifyPaymentServiceResponse
+        {
+            public int OrderId { get; set; }
+            public bool Verified { get; set; }
+            public string? TransactionId { get; set; }
+            public string Message { get; set; } = string.Empty;
         }
 
         private async Task<bool> TryUpdateOrderStatusFromPaymentAsync(Order order)

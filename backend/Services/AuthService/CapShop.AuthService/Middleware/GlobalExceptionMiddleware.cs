@@ -4,6 +4,7 @@ namespace CapShop.AuthService.Middleware
 {
     public class GlobalExceptionMiddleware
     {
+        // dependency injection of RequestDelegate to call the next middleware in the pipeline and ILogger to log unhandled exceptions with trace identifiers for better debugging and monitoring of errors in the application
         private readonly RequestDelegate _next;
         private readonly ILogger<GlobalExceptionMiddleware> _logger;
 
@@ -12,6 +13,7 @@ namespace CapShop.AuthService.Middleware
             _next = next;
             _logger = logger;
         }
+        // This method is invoked for each HTTP request and wraps the execution of the next middleware in a try-catch block to handle specific exceptions like UnauthorizedAccessException and InvalidOperationException with appropriate status codes and messages, while also catching any unhandled exceptions to log them with a trace identifier and return a generic error response to the client without exposing sensitive details about the error
 
         public async Task Invoke(HttpContext context)
         {

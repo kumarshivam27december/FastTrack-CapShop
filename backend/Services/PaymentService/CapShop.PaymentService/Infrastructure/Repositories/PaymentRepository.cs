@@ -37,7 +37,16 @@ public class PaymentRepository : IPaymentRepository
             .FirstOrDefaultAsync();
     }
 
-    public async Task<PaymentRecord?> UpdateStatusAsync(int id, string status, string? failureReason)
+    public Task<PaymentRecord?> GetLatestByOrderIdAndUserIdAsync(int orderId, int userId)
+    {
+        return _db.Payments
+            .AsNoTracking()
+            .Where(x => x.OrderId == orderId && x.UserId == userId)
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .FirstOrDefaultAsync();
+    }
+
+    public async Task<PaymentRecord?> UpdateStatusAsync(int id, string status, string? failureReason, string? transactionId = null)
     {
         var payment = await _db.Payments.FirstOrDefaultAsync(x => x.Id == id);
         if (payment is null)
@@ -48,7 +57,11 @@ public class PaymentRepository : IPaymentRepository
         payment.Status = status;
         payment.FailureReason = status == PaymentStatus.Failed ? failureReason : null;
 
-        if (status == PaymentStatus.Succeeded && string.IsNullOrWhiteSpace(payment.TransactionId))
+        if (status == PaymentStatus.Succeeded && !string.IsNullOrWhiteSpace(transactionId))
+        {
+            payment.TransactionId = transactionId;
+        }
+        else if (status == PaymentStatus.Succeeded && string.IsNullOrWhiteSpace(payment.TransactionId))
         {
             payment.TransactionId = $"TXN-{Guid.NewGuid():N}";
         }

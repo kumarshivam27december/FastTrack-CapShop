@@ -1,20 +1,16 @@
+using CapShop.AuthService.Services.Interfaces;
 namespace CapShop.AuthService.Services
 {
-    public interface IOtpService
-    {
-        string GenerateOtp(int length = 6);
-        bool ValidateOtp(string otp, string storedOtp, DateTime? expiryTime);
-    }
-
     public class OtpService : IOtpService
     {
+        // dependency injection of logger
         private readonly ILogger<OtpService> _logger;
-
+        
         public OtpService(ILogger<OtpService> logger)
         {
             _logger = logger;
         }
-
+        // Generate a random numeric OTP of specified length (default 6 digits)
         public string GenerateOtp(int length = 6)
         {
             var random = new Random();
@@ -28,7 +24,7 @@ namespace CapShop.AuthService.Services
             _logger.LogInformation("OTP generated with length {Length}", length);
             return otp;
         }
-
+        // Validate the provided OTP against the stored OTP and check for expiry
         public bool ValidateOtp(string otp, string storedOtp, DateTime? expiryTime)
         {
             try

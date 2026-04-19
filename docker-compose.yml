@@ -189,6 +189,8 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:5017
       - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=CapShopPaymentDb;User Id=sa;Password=CapShop@12345;TrustServerCertificate=True;Encrypt=True
+      - Razorpay__KeyId=${RAZORPAY_KEY_ID:-rzp_test_SfRs70kXTx6ERk}
+      - Razorpay__KeySecret=${RAZORPAY_KEY_SECRET:-fW7sVpzKTKTg6NFl9Qt51fGP}
       - RabbitMq__Host=rabbitmq
       - RabbitMq__Username=guest
       - RabbitMq__Password=guest

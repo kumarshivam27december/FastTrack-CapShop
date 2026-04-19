@@ -24,6 +24,8 @@ namespace CapShop.OrderService.Application.Services
         public Task<bool> ClearCartAsync(int userId) => _repo.ClearCartAsync(userId);
         public Task<AddressResponseDto> SaveAddressAsync(int userId, AddressRequestDto request) => _repo.SaveAddressAsync(userId, request);
         public Task<CheckoutResponseDto> StartCheckoutAsync(int userId, CheckoutStartRequestDto request) => _repo.StartCheckoutAsync(userId, request);
+        public Task<PaymentIntentResponseDto> CreatePaymentIntentAsync(int userId, string? userEmail, CreatePaymentIntentRequestDto request) => _repo.CreatePaymentIntentAsync(userId, userEmail, request);
+        public Task<VerifyPaymentResponseDto> VerifyPaymentAsync(int userId, string? userEmail, VerifyPaymentRequestDto request) => _repo.VerifyPaymentAsync(userId, userEmail, request);
         public Task<PaymentResponseDto> SimulatePaymentAsync(int userId, string? userEmail, PaymentSimulateRequestDto request) => _repo.SimulatePaymentAsync(userId, userEmail, request);
         public Task<CheckoutResponseDto> PlaceOrderAsync(int userId, string? userEmail, int orderId) => _repo.PlaceOrderAsync(userId, userEmail, orderId);
         public Task<OrderResponseDto?> GetOrderByIdAsync(int orderId, int userId) => _repo.GetOrderByIdAsync(orderId, userId);

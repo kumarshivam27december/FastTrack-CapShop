@@ -14,6 +14,8 @@ pipeline {
     DOCKERHUB_NAMESPACE = 'shivamismyname'
     IMAGE_TAG = "${BUILD_NUMBER}"
     COMPOSE_PROJECT_NAME = 'capshop'
+    RAZORPAY_KEY_ID = credentials('razorpay_key_id')
+    RAZORPAY_KEY_SECRET = credentials('razorpay_key_secret')
   }
 
   stages {
@@ -36,49 +38,67 @@ pipeline {
           string(credentialsId: 'auth_sender_password', variable: 'AUTH_SENDER_PASSWORD')
         ]) {
           sh '''
-            set -e
-            cd backend/Services/AuthService/CapShop.AuthService
+              set -e
+              cd backend/Services/AuthService/CapShop.AuthService
 
-            cat > appsettings.json <<EOF
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "${AUTH_CONN_STR}"
-  },
-  "JwtSettings": {
-    "Issuer": "CapShop.AuthService",
-    "Audience": "CapShop.Client",
-    "SecretKey": "${AUTH_JWT_SECRET}",
-    "ExpiryMinutes": 120
-  },
-  "GoogleAuth": {
-    "ClientId": "${AUTH_GOOGLE_CLIENT_ID}"
-  },
-  "Twilio": {
-    "AccountSid": "${AUTH_TWILIO_SID}",
-    "AuthToken": "${AUTH_TWILIO_TOKEN}",
-    "PhoneNumber": "${AUTH_TWILIO_PHONE}"
-  },
-  "Email": {
-    "SmtpHost": "smtp.gmail.com",
-    "SmtpPort": "587",
-    "SenderEmail": "${AUTH_SENDER_EMAIL}",
-    "SenderPassword": "${AUTH_SENDER_PASSWORD}"
-  },
-  "Otp": {
-    "ExpiryMinutes": 5,
-    "Length": 6
-  },
-  "Logging": {
-    "LogLevel": {
-      "Default": "Information",
-      "Microsoft.AspNetCore": "Warning"
-    }
-  },
-  "AllowedHosts": "*"
-}
-EOF
+              cat > appsettings.json <<EOF
+          {
+            "ConnectionStrings": {
+              "DefaultConnection": "${AUTH_CONN_STR}"
+            },
+            "JwtSettings": {
+              "Issuer": "CapShop.AuthService",
+              "Audience": "CapShop.Client",
+              "SecretKey": "${AUTH_JWT_SECRET}",
+              "ExpiryMinutes": 120
+            },
+            "GoogleAuth": {
+              "ClientId": "${AUTH_GOOGLE_CLIENT_ID}"
+            },
+            "Twilio": {
+              "AccountSid": "${AUTH_TWILIO_SID}",
+              "AuthToken": "${AUTH_TWILIO_TOKEN}",
+              "PhoneNumber": "${AUTH_TWILIO_PHONE}"
+            },
+            "Email": {
+              "SmtpHost": "smtp.gmail.com",
+              "SmtpPort": "587",
+              "SenderEmail": "${AUTH_SENDER_EMAIL}",
+              "SenderPassword": "${AUTH_SENDER_PASSWORD}"
+            },
+            "Otp": {
+              "ExpiryMinutes": 5,
+              "Length": 6
+            },
+            "Logging": {
+              "LogLevel": {
+                "Default": "Information",
+                "Microsoft.AspNetCore": "Warning"
+              }
+            },
+            "AllowedHosts": "*"
+          }
+          EOF
           '''
         }
+      }
+    }
+
+    stage('Prepare Payment Config') {
+      steps {
+        sh '''
+          set -e
+          cd backend/Services/PaymentService/CapShop.PaymentService
+
+          cat > appsettings.Production.json <<EOF
+          {
+            "Razorpay": {
+              "KeyId": "${RAZORPAY_KEY_ID}",
+              "KeySecret": "${RAZORPAY_KEY_SECRET}"
+            }
+          }
+          EOF
+        '''
       }
     }
 

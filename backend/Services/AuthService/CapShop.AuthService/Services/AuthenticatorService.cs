@@ -1,17 +1,11 @@
 using OtpNet;
 using QRCoder;
-
+using CapShop.AuthService.Services.Interfaces;
 namespace CapShop.AuthService.Services
 {
-    public interface IAuthenticatorService
-    {
-        string GenerateSecretKey();
-        string GenerateQrCode(string email, string secretKey, string issuer = "CapShop");
-        bool VerifyCode(string secretKey, string code);
-    }
-
     public class AuthenticatorService : IAuthenticatorService
     {
+        // dependency injection of logger to log important events and errors in the authenticator service
         private readonly ILogger<AuthenticatorService> _logger;
 
         public AuthenticatorService(ILogger<AuthenticatorService> logger)
@@ -19,6 +13,7 @@ namespace CapShop.AuthService.Services
             _logger = logger;
         }
 
+        // Generate a random secret key for the authenticator app and return it as a base32 string which can be stored in the database and used for generating OTPs and QR codes for the user
         public string GenerateSecretKey()
         {
             var key = KeyGeneration.GenerateRandomKey(20);
@@ -27,6 +22,7 @@ namespace CapShop.AuthService.Services
             return base32Key;
         }
 
+        // Generate a QR code image as a base64 string that can be displayed to the user for scanning with their authenticator app using the provided email, secret key, and optional issuer name (default is "CapShop") to create the provisioning URI for the QR code which follows the otpauth URI format and then using the QRCoder library to generate the QR code image and convert it to a base64 string that can be easily embedded in an HTML img tag for display on the frontend
         public string GenerateQrCode(string email, string secretKey, string issuer = "CapShop")
         {
             try
@@ -55,7 +51,7 @@ namespace CapShop.AuthService.Services
                 throw;
             }
         }
-
+        // Verify the provided OTP code against the secret key using the TOTP algorithm and return true if the code is valid within the allowed time window (usually 30 seconds) and false otherwise
         public bool VerifyCode(string secretKey, string code)
         {
             try
