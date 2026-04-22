@@ -76,6 +76,7 @@ services:
       - adminservice
       - paymentservice
       - notificationservice
+      - assistantservice
     networks:
       - capshop-network
     restart: unless-stopped
@@ -223,6 +224,30 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_started
+    networks:
+      - capshop-network
+    restart: unless-stopped
+
+  # Assistant Service
+  assistantservice:
+    build:
+      context: .
+      dockerfile: backend/Services/AssistantService/CapShop.AssistantService/Dockerfile
+    container_name: capshop-assistantservice
+    ports:
+      - "5019:5019"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5019
+      - JwtSettings__Issuer=CapShop.AuthService
+      - JwtSettings__Audience=CapShop.Client
+      - JwtSettings__SecretKey=CapShop-Auth-Day1-Very-Long-Secret-Key-Change-In-Prod
+      - CatalogService__BaseUrl=http://catalogservice:5014
+      - Ollama__BaseUrl=http://host.docker.internal:11434
+      - Ollama__Model=gemma2:2b
+      - Ollama__TimeoutSeconds=60
+    depends_on:
+      - catalogservice
     networks:
       - capshop-network
     restart: unless-stopped

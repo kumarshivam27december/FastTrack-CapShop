@@ -1,4 +1,4 @@
-namespace CapShop.CatalogService.Configuration
+namespace CapShop.AssistantService.Configuration
 {
     public class OllamaOptions
     {

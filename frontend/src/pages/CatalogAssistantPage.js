@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { assistantApi } from '../api/assistantApi';
 import { useAuth } from '../context/AuthContext';
@@ -14,6 +14,8 @@ export default function CatalogAssistantPage() {
   const { token } = useAuth();
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef(null);
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -24,6 +26,54 @@ export default function CatalogAssistantPage() {
   ]);
 
   const canSend = useMemo(() => input.trim().length > 0 && !loading, [input, loading]);
+
+  function initializeRecognition() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Speech Recognition not supported in your browser. Please use Chrome, Edge, or Firefox.');
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      setInput('');
+    };
+
+    recognition.onresult = (event) => {
+      let transcript = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+      setInput(transcript);
+    };
+
+    recognition.onerror = (event) => {
+      console.error('Speech recognition error:', event.error);
+      alert(`Error: ${event.error}`);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+  }
+
+  function startListening() {
+    if (!recognitionRef.current) {
+      initializeRecognition();
+    }
+    recognitionRef.current?.start();
+  }
+
+  function stopListening() {
+    recognitionRef.current?.stop();
+  }
 
   async function sendPrompt(text) {
     const message = text.trim();
@@ -142,6 +192,14 @@ export default function CatalogAssistantPage() {
               placeholder="Ask for products, budget, and stock..."
               aria-label="Catalog assistant prompt"
             />
+            <button
+              type="button"
+              className={`btn ${isListening ? 'btn-solid' : 'btn-outline'}`}
+              onClick={isListening ? stopListening : startListening}
+              title={isListening ? 'Click to stop listening' : 'Click to speak'}
+            >
+              {isListening ? '🎙️ Listening...' : '🎤 Speak'}
+            </button>
             <button type="submit" className="btn btn-solid" disabled={!canSend}>
               Send
             </button>

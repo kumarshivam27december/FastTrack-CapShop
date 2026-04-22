@@ -22,3 +22,6 @@ services:
 
   notificationservice:
     image: ${DOCKERHUB_NAMESPACE}/capshop-notificationservice:${IMAGE_TAG}
+
+  assistantservice:
+    image: ${DOCKERHUB_NAMESPACE}/capshop-assistantservice:${IMAGE_TAG}

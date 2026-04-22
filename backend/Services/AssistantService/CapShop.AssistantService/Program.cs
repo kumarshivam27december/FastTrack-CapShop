@@ -1,13 +1,9 @@
 using System.Text;
-using CapShop.CatalogService.Application.Interfaces;
-using CapShop.CatalogService.Application.Services;
-using CapShop.CatalogService.Consumers;
-using CapShop.CatalogService.Data;
-using CapShop.CatalogService.Infrastructure.Repositories;
-using CapShop.CatalogService.Middleware;
-using MassTransit;
+using CapShop.AssistantService.Application.Interfaces;
+using CapShop.AssistantService.Application.Services;
+using CapShop.AssistantService.Configuration;
+using CapShop.AssistantService.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 
@@ -43,48 +39,26 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-builder.Services.AddDbContext<CatalogDbContext>(opts =>
-    opts.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.Configure<OllamaOptions>(builder.Configuration.GetSection("Ollama"));
+builder.Services.Configure<CatalogServiceOptions>(builder.Configuration.GetSection("CatalogService"));
 
-var redisConfiguration = builder.Configuration["Redis:Configuration"];
-if (string.IsNullOrWhiteSpace(redisConfiguration))
+builder.Services.AddHttpClient("ollama", (sp, client) =>
 {
-    throw new InvalidOperationException("Redis:Configuration is missing in configuration.");
-}
-
-builder.Services.AddStackExchangeRedisCache(options =>
-{
-    options.Configuration = redisConfiguration;
-    options.InstanceName = builder.Configuration["Redis:InstanceName"] ?? "CapShop:Catalog:";
+    var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<OllamaOptions>>().Value;
+    var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl) ? "http://localhost:11434" : options.BaseUrl;
+    client.BaseAddress = new Uri(baseUrl.EndsWith('/') ? baseUrl : $"{baseUrl}/");
+    client.Timeout = TimeSpan.FromSeconds(Math.Clamp(options.TimeoutSeconds, 10, 180));
 });
 
-builder.Services.AddScoped<ICatalogRepository, CatalogRepository>();
-builder.Services.AddScoped<IProductAppService, ProductAppService>();
-builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
-builder.Services.AddScoped<ICategoryAppService, CategoryAppService>();
-
-builder.Services.AddMassTransit(x =>
+builder.Services.AddHttpClient("catalog", (sp, client) =>
 {
-    x.SetEndpointNameFormatter(new KebabCaseEndpointNameFormatter("catalog", false));
-    x.AddConsumer<ReserveStockCommandConsumer>();
-
-    x.AddConfigureEndpointsCallback((context, _, cfg) =>
-    {
-        cfg.UseMessageRetry(r => r.Interval(3, TimeSpan.FromSeconds(2)));
-        cfg.UseInMemoryOutbox();
-    });
-
-    x.UsingRabbitMq((context, cfg) =>
-    {
-        cfg.Host(builder.Configuration["RabbitMq:Host"] ?? "localhost", "/", h =>
-        {
-            h.Username(builder.Configuration["RabbitMq:Username"] ?? "guest");
-            h.Password(builder.Configuration["RabbitMq:Password"] ?? "guest");
-        });
-
-        cfg.ConfigureEndpoints(context);
-    });
+    var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<CatalogServiceOptions>>().Value;
+    var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl) ? "http://localhost:5014" : options.BaseUrl;
+    client.BaseAddress = new Uri(baseUrl.EndsWith('/') ? baseUrl : $"{baseUrl}/");
+    client.Timeout = TimeSpan.FromSeconds(20);
 });
+
+builder.Services.AddScoped<IInventoryAssistantService, InventoryAssistantService>();
 
 var secret = builder.Configuration["JwtSettings:SecretKey"];
 if (string.IsNullOrWhiteSpace(secret))
@@ -119,15 +93,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
-app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
-    await CapShop.CatalogService.Data.CatalogDbSeeder.SeedAsync(db);
-}
 
 app.Run();

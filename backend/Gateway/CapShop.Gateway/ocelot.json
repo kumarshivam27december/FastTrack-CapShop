@@ -71,6 +71,18 @@
       ],
       "UpstreamPathTemplate": "/gateway/notification/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ]
+    },
+    {
+      "DownstreamPathTemplate": "/assistant/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "assistantservice",
+          "Port": 5019
+        }
+      ],
+      "UpstreamPathTemplate": "/gateway/assistant/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ]
     }
   ],
   "GlobalConfiguration": {

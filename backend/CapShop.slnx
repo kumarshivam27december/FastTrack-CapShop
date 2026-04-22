@@ -12,6 +12,9 @@
   <Folder Name="/Services/CatalogService/">
     <Project Path="Services/CatalogService/CapShop.CatalogService/CapShop.CatalogService.csproj" />
   </Folder>
+  <Folder Name="/Services/AssistantService/">
+    <Project Path="Services/AssistantService/CapShop.AssistantService/CapShop.AssistantService.csproj" />
+  </Folder>
   <Folder Name="/Services/OrderService/">
     <Project Path="Services/OrderService/CapShop.OrderService/CapShop.OrderService.csproj" />
   </Folder>

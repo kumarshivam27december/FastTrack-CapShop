@@ -1,16 +1,16 @@
 using System.Net.Http.Json;
-using System.Text.RegularExpressions;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using CapShop.CatalogService.Application.Interfaces;
-using CapShop.CatalogService.Configuration;
-using CapShop.CatalogService.DTOs.Assistant;
-using CapShop.CatalogService.DTOs.Catalog;
+using System.Text.RegularExpressions;
+using CapShop.AssistantService.Application.Interfaces;
+using CapShop.AssistantService.Configuration;
+using CapShop.AssistantService.DTOs.Assistant;
+using CapShop.AssistantService.DTOs.Catalog;
 using CapShop.Shared.Exceptions;
 using Microsoft.Extensions.Options;
 
-namespace CapShop.CatalogService.Application.Services
+namespace CapShop.AssistantService.Application.Services
 {
     public class InventoryAssistantService : IInventoryAssistantService
     {
@@ -20,18 +20,15 @@ namespace CapShop.CatalogService.Application.Services
             NumberHandling = JsonNumberHandling.AllowReadingFromString
         };
 
-        private readonly IProductAppService _productAppService;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly OllamaOptions _ollamaOptions;
         private readonly ILogger<InventoryAssistantService> _logger;
 
         public InventoryAssistantService(
-            IProductAppService productAppService,
             IHttpClientFactory httpClientFactory,
             IOptions<OllamaOptions> ollamaOptions,
             ILogger<InventoryAssistantService> logger)
         {
-            _productAppService = productAppService;
             _httpClientFactory = httpClientFactory;
             _ollamaOptions = ollamaOptions.Value;
             _logger = logger;
@@ -173,9 +170,8 @@ namespace CapShop.CatalogService.Application.Services
                 return await ExecuteSearchAcrossPagesAsync(intent, pageSize, ct);
             }
 
-            var (products, totalCount) = await _productAppService.SearchProductsAsync(
+            var (products, totalCount) = await SearchCatalogProductsAsync(
                 query: intent.Query,
-                categoryId: null,
                 minPrice: intent.MinPrice,
                 maxPrice: intent.MaxPrice,
                 sortBy: intent.SortBy,
@@ -201,9 +197,8 @@ namespace CapShop.CatalogService.Application.Services
 
             while (page <= maxPages)
             {
-                var (pageProducts, pageTotalCount) = await _productAppService.SearchProductsAsync(
+                var (pageProducts, pageTotalCount) = await SearchCatalogProductsAsync(
                     query: intent.Query,
-                    categoryId: null,
                     minPrice: intent.MinPrice,
                     maxPrice: intent.MaxPrice,
                     sortBy: intent.SortBy,
@@ -243,6 +238,56 @@ namespace CapShop.CatalogService.Application.Services
 
             var inStock = deduped.Where(x => x.Stock > 0).ToList();
             return (inStock, inStock.Count);
+        }
+
+        private async Task<(List<ProductResponseDto> Products, int TotalCount)> SearchCatalogProductsAsync(
+            string query,
+            decimal? minPrice,
+            decimal? maxPrice,
+            string? sortBy,
+            int page,
+            int pageSize,
+            CancellationToken ct)
+        {
+            var client = _httpClientFactory.CreateClient("catalog");
+            var queryString = BuildQueryString(query, minPrice, maxPrice, sortBy, page, pageSize);
+
+            using var response = await client.GetAsync($"catalog/products{queryString}", ct);
+            response.EnsureSuccessStatusCode();
+
+            var result = await response.Content.ReadFromJsonAsync<CatalogSearchResponseDto>(JsonOptions, ct);
+            return (result?.Products ?? new List<ProductResponseDto>(), result?.Total ?? 0);
+        }
+
+        private static string BuildQueryString(string query, decimal? minPrice, decimal? maxPrice, string? sortBy, int page, int pageSize)
+        {
+            var pairs = new List<string>
+            {
+                $"page={page}",
+                $"pageSize={pageSize}"
+            };
+
+            if (!string.IsNullOrWhiteSpace(query))
+            {
+                pairs.Add($"query={Uri.EscapeDataString(query)}");
+            }
+
+            if (minPrice.HasValue)
+            {
+                pairs.Add($"minPrice={minPrice.Value}");
+            }
+
+            if (maxPrice.HasValue)
+            {
+                pairs.Add($"maxPrice={maxPrice.Value}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(sortBy))
+            {
+                pairs.Add($"sortBy={Uri.EscapeDataString(sortBy)}");
+            }
+
+            return $"?{string.Join("&", pairs)}";
         }
 
         private static IEnumerable<string> BuildBroaderQueries(string query)
@@ -409,13 +454,13 @@ Products: {{productJson}}
                 StockOnly = lower.Contains("in stock") || lower.Contains("available")
             };
 
-            var underMatch = System.Text.RegularExpressions.Regex.Match(lower, @"under\s+(\d+)");
+            var underMatch = Regex.Match(lower, @"under\s+(\d+)");
             if (underMatch.Success && decimal.TryParse(underMatch.Groups[1].Value, out var maxPrice))
             {
                 intent.MaxPrice = maxPrice;
             }
 
-            var aboveMatch = System.Text.RegularExpressions.Regex.Match(lower, @"above\s+(\d+)");
+            var aboveMatch = Regex.Match(lower, @"above\s+(\d+)");
             if (aboveMatch.Success && decimal.TryParse(aboveMatch.Groups[1].Value, out var minPrice))
             {
                 intent.MinPrice = minPrice;
@@ -485,18 +530,12 @@ Products: {{productJson}}
         {
             var text = aiReply.Trim();
 
-            // Remove common markdown markers so chat text reads cleanly in plain UI.
             text = text.Replace("**", string.Empty)
                 .Replace("__", string.Empty)
                 .Replace("`", string.Empty);
 
-            // Normalize markdown list markers to plain lines.
             text = Regex.Replace(text, @"(?m)^\s*[-*]\s+", string.Empty);
-
-            // Normalize currency from dollar to rupee text used across this app.
             text = Regex.Replace(text, @"\$\s*(\d+(?:\.\d{1,2})?)", "Rs. $1");
-
-            // Collapse excessive blank lines.
             text = Regex.Replace(text, @"(\r?\n){3,}", Environment.NewLine + Environment.NewLine);
 
             return text.Trim();

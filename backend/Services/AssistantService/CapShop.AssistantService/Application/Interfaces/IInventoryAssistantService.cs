@@ -1,6 +1,6 @@
-using CapShop.CatalogService.DTOs.Assistant;
+using CapShop.AssistantService.DTOs.Assistant;
 
-namespace CapShop.CatalogService.Application.Interfaces
+namespace CapShop.AssistantService.Application.Interfaces
 {
     public interface IInventoryAssistantService
     {

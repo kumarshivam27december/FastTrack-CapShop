@@ -1,4 +1,4 @@
-namespace CapShop.CatalogService.DTOs.Assistant
+namespace CapShop.AssistantService.DTOs.Assistant
 {
     public class AssistantQueryResponseDto
     {

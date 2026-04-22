@@ -1,12 +1,12 @@
-using CapShop.CatalogService.Application.Interfaces;
-using CapShop.CatalogService.DTOs.Assistant;
+using CapShop.AssistantService.Application.Interfaces;
+using CapShop.AssistantService.DTOs.Assistant;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace CapShop.CatalogService.Controllers
+namespace CapShop.AssistantService.Controllers
 {
     [ApiController]
-    [Route("catalog/assistant")]
+    [Route("assistant")]
     public class AssistantController : ControllerBase
     {
         private readonly IInventoryAssistantService _assistantService;
@@ -28,5 +28,9 @@ namespace CapShop.CatalogService.Controllers
             var response = await _assistantService.QueryAsync(request, ct);
             return Ok(response);
         }
+
+        [HttpGet("health")]
+        [AllowAnonymous]
+        public IActionResult Health() => Ok(new { service = "AssistantService", status = "Healthy" });
     }
 }
