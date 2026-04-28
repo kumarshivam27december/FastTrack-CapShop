@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { assistantApi } from '../api/assistantApi';
+import { useAuth } from '../context/AuthContext';
 
 export default function InventoryAssistantWidget() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const { token } = useAuth();
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -26,14 +28,15 @@ export default function InventoryAssistantWidget() {
     setLoading(true);
 
     try {
-      const response = await assistantApi.queryCatalog(message);
+      const response = await assistantApi.queryCatalog(token, message);
       setMessages((prev) => [
         ...prev,
         {
           id: Date.now() + 1,
           role: 'assistant',
           text: response?.reply || 'No response from assistant.',
-          products: Array.isArray(response?.products) ? response.products : []
+          products: Array.isArray(response?.products) ? response.products : [],
+          orders: Array.isArray(response?.orders) ? response.orders : []
         }
       ]);
     } catch (err) {
@@ -42,7 +45,9 @@ export default function InventoryAssistantWidget() {
         {
           id: Date.now() + 1,
           role: 'assistant',
-          text: err.message || 'Assistant request failed.'
+          text: err.message || 'Assistant request failed.',
+          products: [],
+          orders: []
         }
       ]);
     } finally {
@@ -64,6 +69,16 @@ export default function InventoryAssistantWidget() {
             className={`assistant-message assistant-message-${message.role}`}
           >
             <p>{message.text}</p>
+            {Array.isArray(message.orders) && message.orders.length > 0 && (
+              <ul className="assistant-products-list">
+                {message.orders.map((order) => (
+                  <li key={order.id}>
+                    <Link to={`/orders/${order.id}`}>Order #{order.orderNumber}</Link>
+                    <span>{new Date(order.createdAtUtc).toLocaleDateString()} | Rs. {Number(order.totalAmount).toFixed(2)} | {order.status}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
             {Array.isArray(message.products) && message.products.length > 0 && (
               <ul className="assistant-products-list">
                 {message.products.map((product) => (

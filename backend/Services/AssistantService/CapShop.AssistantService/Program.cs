@@ -58,6 +58,15 @@ builder.Services.AddHttpClient("catalog", (sp, client) =>
     client.Timeout = TimeSpan.FromSeconds(20);
 });
 
+builder.Services.AddHttpClient("order", (sp, client) =>
+{
+    var baseUrl = "http://localhost:5015";
+    client.BaseAddress = new Uri(baseUrl.EndsWith('/') ? baseUrl : $"{baseUrl}/");
+    client.Timeout = TimeSpan.FromSeconds(20);
+});
+
+builder.Services.AddSingleton<CapShop.AssistantService.Application.Interfaces.IAssistantKnowledgeService, CapShop.AssistantService.Application.Services.AssistantKnowledgeService>();
+
 builder.Services.AddScoped<IInventoryAssistantService, InventoryAssistantService>();
 
 var secret = builder.Configuration["JwtSettings:SecretKey"];

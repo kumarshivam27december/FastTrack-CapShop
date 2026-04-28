@@ -21,7 +21,8 @@ export default function CatalogAssistantPage() {
       id: 1,
       role: 'assistant',
       text: 'Hi, I can search your catalog using natural language. Ask for budget, availability, or product type.',
-      products: []
+      products: [],
+      orders: []
     }
   ]);
 
@@ -87,7 +88,8 @@ export default function CatalogAssistantPage() {
         id: Date.now(),
         role: 'user',
         text: message,
-        products: []
+        products: [],
+        orders: []
       }
     ]);
     setInput('');
@@ -101,7 +103,8 @@ export default function CatalogAssistantPage() {
           id: Date.now() + 1,
           role: 'assistant',
           text: response?.reply || 'I could not generate a response this time.',
-          products: Array.isArray(response?.products) ? response.products : []
+          products: Array.isArray(response?.products) ? response.products : [],
+          orders: Array.isArray(response?.orders) ? response.orders : []
         }
       ]);
     } catch (error) {
@@ -111,7 +114,8 @@ export default function CatalogAssistantPage() {
           id: Date.now() + 1,
           role: 'assistant',
           text: error?.message || 'The assistant request failed. Please try again.',
-          products: []
+          products: [],
+          orders: []
         }
       ]);
     } finally {
@@ -162,6 +166,19 @@ export default function CatalogAssistantPage() {
                 className={`assistant-chat-bubble assistant-chat-bubble-${message.role}`}
               >
                 <p>{message.text}</p>
+
+                {Array.isArray(message.orders) && message.orders.length > 0 && (
+                  <div className="assistant-result-grid">
+                    {message.orders.map((order) => (
+                      <div key={order.id} className="assistant-result-card">
+                        <h4>Order #{order.orderNumber}</h4>
+                        <p className="hint">{new Date(order.createdAtUtc).toLocaleDateString()}</p>
+                        <p className="hint">Rs. {Number(order.totalAmount).toFixed(2)} | Status: {order.status}</p>
+                        <Link className="btn btn-outline" to={`/orders/${order.id}`}>View Order</Link>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {Array.isArray(message.products) && message.products.length > 0 && (
                   <div className="assistant-result-grid">

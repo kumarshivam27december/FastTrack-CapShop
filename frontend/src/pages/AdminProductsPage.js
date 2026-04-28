@@ -22,6 +22,8 @@ export default function AdminProductsPage() {
   const [productForm, setProductForm] = useState(INITIAL_PRODUCT_FORM);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [uploadResult, setUploadResult] = useState(null);
 
   const loadProducts = useCallback(async () => {
     setLoading(true);
@@ -86,6 +88,28 @@ export default function AdminProductsPage() {
       await loadProducts();
     } catch (err) {
       alert(err.message);
+    }
+  }
+
+  async function handleUpload(event) {
+    event.preventDefault();
+    const fileInput = document.getElementById('catalog-upload-file');
+    if (!fileInput || !fileInput.files || !fileInput.files.length) {
+      alert('Please select a file to upload.');
+      return;
+    }
+
+    const file = fileInput.files[0];
+    setUploading(true);
+    setUploadResult(null);
+    try {
+      const result = await adminApi.uploadCatalog(token, file);
+      setUploadResult(result);
+      await loadProducts();
+    } catch (err) {
+      alert(err.message || 'Upload failed');
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -187,6 +211,18 @@ export default function AdminProductsPage() {
             {productForm.id ? 'Update Product' : 'Add Product'}
           </button>
         </form>
+      </section>
+
+      <section className="card section">
+        <h2>Import Catalog File</h2>
+        <p className="hint">Upload a CSV, TXT, or JSON file containing product rows. CSV/TXT columns: id,name,description,price,stock,imageUrl</p>
+        <form className="product-form" onSubmit={handleUpload}>
+          <input id="catalog-upload-file" type="file" accept=".csv,.txt,.json" />
+          <button type="submit" className="btn btn-solid" disabled={uploading}>
+            {uploading ? 'Uploading...' : 'Upload Catalog'}
+          </button>
+        </form>
+        {uploadResult && <p className="message">Imported: {uploadResult.imported}</p>}
       </section>
 
       <section className="card section">

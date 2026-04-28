@@ -53,6 +53,12 @@ builder.Services.AddHttpClient("catalog-api", client =>
     client.Timeout = TimeSpan.FromSeconds(10);
 });
 
+builder.Services.AddHttpClient("assistant-api", client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["ServiceUrls:AssistantService"]!);
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
+
 builder.Services.AddScoped<IOrderAdminRepository, OrderAdminRepository>();
 builder.Services.AddScoped<ICatalogReadRepository, CatalogReadRepository>();
 builder.Services.AddScoped<IAdminAppService, AdminAppService>();

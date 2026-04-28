@@ -20,21 +20,26 @@ namespace CapShop.AssistantService.Application.Services
             NumberHandling = JsonNumberHandling.AllowReadingFromString
         };
 
+        private const string ORDER_KEYWORDS = "order|orders|purchase|purchases|bought|history|previous|past";
+
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly OllamaOptions _ollamaOptions;
         private readonly ILogger<InventoryAssistantService> _logger;
+        private readonly CapShop.AssistantService.Application.Interfaces.IAssistantKnowledgeService _knowledgeService;
 
         public InventoryAssistantService(
             IHttpClientFactory httpClientFactory,
             IOptions<OllamaOptions> ollamaOptions,
-            ILogger<InventoryAssistantService> logger)
+            ILogger<InventoryAssistantService> logger,
+            CapShop.AssistantService.Application.Interfaces.IAssistantKnowledgeService knowledgeService)
         {
             _httpClientFactory = httpClientFactory;
             _ollamaOptions = ollamaOptions.Value;
             _logger = logger;
+            _knowledgeService = knowledgeService;
         }
 
-        public async Task<AssistantQueryResponseDto> QueryAsync(AssistantQueryRequestDto request, CancellationToken ct = default)
+        public async Task<AssistantQueryResponseDto> QueryAsync(AssistantQueryRequestDto request, string authHeader, CancellationToken ct = default)
         {
             var message = request.Message?.Trim();
             if (string.IsNullOrWhiteSpace(message))
@@ -43,6 +48,31 @@ namespace CapShop.AssistantService.Application.Services
             }
 
             var pageSize = Math.Clamp(request.PageSize <= 0 ? 20 : request.PageSize, 1, 50);
+            var isOrderQuery = Regex.IsMatch(message, ORDER_KEYWORDS, RegexOptions.IgnoreCase);
+
+            var response = new AssistantQueryResponseDto();
+
+            // If user asks for orders, fetch them
+            if (isOrderQuery)
+            {
+                try
+                {
+                    var orders = await FetchUserOrdersAsync(request.UserId, authHeader, ct);
+                    response.Orders = orders;
+                    response.Reply = orders.Count > 0
+                        ? $"Here are your {orders.Count} order(s):"
+                        : "You don't have any previous orders yet.";
+                    return response;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to fetch orders");
+                    response.Reply = "I couldn't retrieve your orders. Please try again.";
+                    return response;
+                }
+            }
+
+            // Otherwise, search for products
             var intent = await ExtractIntentAsync(message, ct) ?? BuildHeuristicIntent(message);
 
             if (string.IsNullOrWhiteSpace(intent.Query))
@@ -53,21 +83,18 @@ namespace CapShop.AssistantService.Application.Services
             var search = await SearchWithRelaxationAsync(intent, pageSize, request.ReturnAllMatches, ct);
 
             var mappedProducts = search.Products.Select(MapProduct).ToList();
-            var response = new AssistantQueryResponseDto
+            response.AppliedFilters = new AssistantAppliedFiltersDto
             {
-                AppliedFilters = new AssistantAppliedFiltersDto
-                {
-                    Query = search.AppliedIntent.Query,
-                    MinPrice = search.AppliedIntent.MinPrice,
-                    MaxPrice = search.AppliedIntent.MaxPrice,
-                    StockOnly = search.AppliedIntent.StockOnly,
-                    SortBy = search.AppliedIntent.SortBy
-                },
-                Products = mappedProducts,
-                TotalMatches = search.TotalCount,
-                UsedRelaxedSearch = search.UsedRelaxedSearch,
-                RelaxationNote = search.RelaxationNote
+                Query = search.AppliedIntent.Query,
+                MinPrice = search.AppliedIntent.MinPrice,
+                MaxPrice = search.AppliedIntent.MaxPrice,
+                StockOnly = search.AppliedIntent.StockOnly,
+                SortBy = search.AppliedIntent.SortBy
             };
+            response.Products = mappedProducts;
+            response.TotalMatches = search.TotalCount;
+            response.UsedRelaxedSearch = search.UsedRelaxedSearch;
+            response.RelaxationNote = search.RelaxationNote;
 
             var aiReply = await BuildCatalogAnswerAsync(message, response, ct);
             if (string.IsNullOrWhiteSpace(aiReply))
@@ -168,6 +195,20 @@ namespace CapShop.AssistantService.Application.Services
             if (returnAllMatches)
             {
                 return await ExecuteSearchAcrossPagesAsync(intent, pageSize, ct);
+            }
+
+            // 1) check uploaded/local knowledge store first
+            try
+            {
+                var local = await _knowledgeService.SearchAsync(intent.Query, intent.MinPrice, intent.MaxPrice, intent.StockOnly, page: 1, pageSize: pageSize);
+                if (local != null && local.Products.Count > 0)
+                {
+                    return (local.Products, local.Total);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Knowledge service search failed, falling back to catalog");
             }
 
             var (products, totalCount) = await SearchCatalogProductsAsync(
@@ -539,6 +580,53 @@ Products: {{productJson}}
             text = Regex.Replace(text, @"(\r?\n){3,}", Environment.NewLine + Environment.NewLine);
 
             return text.Trim();
+        }
+
+        private async Task<List<AssistantOrderMatchDto>> FetchUserOrdersAsync(string userId, string authHeader, CancellationToken ct)
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return new List<AssistantOrderMatchDto>();
+            }
+
+            try
+            {
+                var client = _httpClientFactory.CreateClient("order");
+                
+                // Add authorization header from the original request
+                if (!string.IsNullOrWhiteSpace(authHeader))
+                {
+                    client.DefaultRequestHeaders.Add("Authorization", authHeader);
+                }
+
+                using var response = await client.GetAsync($"orders/my", ct);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Failed to fetch orders: status {Status}", response.StatusCode);
+                    return new List<AssistantOrderMatchDto>();
+                }
+
+                var orders = await response.Content.ReadFromJsonAsync<List<dynamic>>(JsonOptions, ct);
+                if (orders == null || orders.Count == 0)
+                {
+                    return new List<AssistantOrderMatchDto>();
+                }
+
+                return orders.Select(o => new AssistantOrderMatchDto
+                {
+                    Id = (int)o["id"],
+                    OrderNumber = (string)o["orderNumber"],
+                    CreatedAtUtc = DateTime.Parse((string)o["createdAtUtc"]),
+                    TotalAmount = decimal.Parse(o["totalAmount"].ToString()),
+                    Status = (string)o["status"]
+                }).ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to fetch user orders");
+                return new List<AssistantOrderMatchDto>();
+            }
         }
 
         private sealed class AssistantIntent

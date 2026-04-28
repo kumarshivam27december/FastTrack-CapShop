@@ -5,5 +5,6 @@ namespace CapShop.AssistantService.DTOs.Assistant
         public string Message { get; set; } = string.Empty;
         public int PageSize { get; set; } = 5;
         public bool ReturnAllMatches { get; set; }
+        public string UserId { get; set; } = string.Empty;
     }
 }

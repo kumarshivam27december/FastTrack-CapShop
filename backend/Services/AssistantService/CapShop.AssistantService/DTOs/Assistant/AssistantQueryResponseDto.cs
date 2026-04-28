@@ -5,6 +5,7 @@ namespace CapShop.AssistantService.DTOs.Assistant
         public string Reply { get; set; } = string.Empty;
         public AssistantAppliedFiltersDto AppliedFilters { get; set; } = new();
         public List<AssistantProductMatchDto> Products { get; set; } = new();
+        public List<AssistantOrderMatchDto> Orders { get; set; } = new();
         public int TotalMatches { get; set; }
         public bool UsedFallbackResponse { get; set; }
         public bool UsedRelaxedSearch { get; set; }
@@ -29,5 +30,14 @@ namespace CapShop.AssistantService.DTOs.Assistant
         public int Stock { get; set; }
         public string CategoryName { get; set; } = string.Empty;
         public string ImageUrl { get; set; } = string.Empty;
+    }
+
+    public class AssistantOrderMatchDto
+    {
+        public int Id { get; set; }
+        public string OrderNumber { get; set; } = string.Empty;
+        public DateTime CreatedAtUtc { get; set; }
+        public decimal TotalAmount { get; set; }
+        public string Status { get; set; } = string.Empty;
     }
 }

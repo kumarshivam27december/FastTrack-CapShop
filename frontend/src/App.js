@@ -4,6 +4,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
 import CustomerRoute from './components/CustomerRoute';
 import HomePage from './pages/HomePage';
+import LandingPage from './pages/LandingPage';
 import CatalogPage from './pages/CatalogPage';
 import CatalogAssistantPage from './pages/CatalogAssistantPage';
 import ProductDetailPage from './pages/ProductDetailPage';
@@ -38,7 +39,8 @@ function App() {
           <CartProvider>
             <Routes>
               <Route path="/" element={<Layout />}>
-                <Route index element={<HomePage />} />
+                <Route index element={<LandingPage />} />
+                <Route path="home" element={<HomePage />} />
                 <Route path="catalog" element={<CatalogPage />} />
                 <Route
                   path="assistant"

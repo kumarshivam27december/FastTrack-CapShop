@@ -21,3 +21,22 @@ export const adminApi = {
   deleteCategory: (token, id) =>
     apiRequest(`/catalog/categories/${id}`, { method: 'DELETE', token })
 };
+
+// Upload catalog file (CSV or JSON array) using multipart/form-data
+adminApi.uploadCatalog = async (token, file) => {
+  const { API_BASE_URL } = await import('./client');
+  const url = `${API_BASE_URL}/admin/catalog/upload`;
+  const fd = new FormData();
+  fd.append('file', file);
+
+  const headers = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const resp = await fetch(url, { method: 'POST', headers, body: fd });
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(text || `Upload failed (${resp.status})`);
+  }
+
+  return resp.json();
+};

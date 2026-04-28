@@ -1,0 +1,12 @@
+[
+  {
+    "Id": 0,
+    "Name": "",
+    "Description": "",
+    "Price": 0,
+    "Stock": 0,
+    "InStock": false,
+    "ImageUrl": "",
+    "Category": null
+  }
+]
