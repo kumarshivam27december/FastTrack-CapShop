@@ -51,7 +51,6 @@ public class OrderSagaStateMachine : MassTransitStateMachine<OrderSagaState>
         Event(() => StockReserved, x =>
         {
             x.CorrelateById(context => context.Message.CorrelationId);
-            x.InsertOnInitial = true;
             x.SetSagaFactory(context => new OrderSagaState
             {
                 CorrelationId = context.Message.CorrelationId,
@@ -66,7 +65,6 @@ public class OrderSagaStateMachine : MassTransitStateMachine<OrderSagaState>
         Event(() => StockReservationFailed, x =>
         {
             x.CorrelateById(context => context.Message.CorrelationId);
-            x.InsertOnInitial = true;
             x.SetSagaFactory(context => new OrderSagaState
             {
                 CorrelationId = context.Message.CorrelationId,

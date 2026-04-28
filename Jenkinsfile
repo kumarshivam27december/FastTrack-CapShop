@@ -12,7 +12,7 @@ pipeline {
 
   environment {
     DOCKERHUB_NAMESPACE = 'shivamismyname'
-    IMAGE_TAG = "${BUILD_NUMBER}"
+    IMAGE_TAG = "${BUILD_NUMBER}" 
     COMPOSE_PROJECT_NAME = 'capshop'
     RAZORPAY_KEY_ID = credentials('razorpay_key_id')
     RAZORPAY_KEY_SECRET = credentials('razorpay_key_secret')
