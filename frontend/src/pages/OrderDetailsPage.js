@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { orderApi } from '../api/orderApi';
+import { reviewApi } from '../api/reviewApi';
 import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/StatusBadge';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -10,35 +11,121 @@ export default function OrderDetailsPage() {
   const { token } = useAuth();
   const [order, setOrder] = useState(null);
   const [tracking, setTracking] = useState(null);
+  const [eligibilities, setEligibilities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [trackingError, setTrackingError] = useState('');
+  const [reviewOpenProductId, setReviewOpenProductId] = useState(null);
+  const [reviewForm, setReviewForm] = useState({
+    rating: 5,
+    title: '',
+    comment: ''
+  });
+  const [reviewSaving, setReviewSaving] = useState(false);
+  const [reviewError, setReviewError] = useState('');
+  const [reviewMessage, setReviewMessage] = useState('');
 
   useEffect(() => {
+    let isMounted = true;
+
     async function load() {
       setLoading(true);
       setError('');
+      setReviewError('');
+      setReviewMessage('');
       try {
         const orderData = await orderApi.getOrderById(token, id);
-        setOrder(orderData);
+        if (isMounted) {
+          setOrder(orderData);
+        }
 
         try {
           const trackingData = await orderApi.getOrderTracking(token, id);
-          setTracking(trackingData);
-          setTrackingError('');
+          if (isMounted) {
+            setTracking(trackingData);
+            setTrackingError('');
+          }
         } catch (trackingErr) {
-          setTracking(null);
-          setTrackingError(`Tracking is not available yet: ${trackingErr.message}`);
+          if (isMounted) {
+            setTracking(null);
+            setTrackingError(`Tracking is not available yet: ${trackingErr.message}`);
+          }
+        }
+
+        try {
+          const reviewEligibilities = await reviewApi.getMyEligibilities(token);
+          if (isMounted) {
+            setEligibilities(Array.isArray(reviewEligibilities) ? reviewEligibilities : []);
+          }
+        } catch {
+          if (isMounted) {
+            setEligibilities([]);
+          }
         }
       } catch (err) {
-        setError(err.message);
+        if (isMounted) {
+          setError(err.message);
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     }
 
     load();
+
+    return () => {
+      isMounted = false;
+    };
   }, [token, id]);
+
+  function openReviewForm(item) {
+    setReviewOpenProductId(item.productId);
+    setReviewForm({ rating: 5, title: '', comment: '' });
+    setReviewError('');
+    setReviewMessage('');
+  }
+
+  function closeReviewForm() {
+    setReviewOpenProductId(null);
+    setReviewError('');
+  }
+
+  function getEligibility(item) {
+    return eligibilities.find((entry) => entry.orderId === order?.id && entry.productId === item.productId) || null;
+  }
+
+  async function handleReviewSubmit(event, item) {
+    event.preventDefault();
+    setReviewSaving(true);
+    setReviewError('');
+    setReviewMessage('');
+
+    try {
+      await reviewApi.createReview(token, item.productId, {
+        rating: Number(reviewForm.rating),
+        title: reviewForm.title,
+        comment: reviewForm.comment,
+        orderId: order.id
+      });
+
+      setReviewMessage(`${item.productName} was reviewed successfully.`);
+      setReviewOpenProductId(null);
+      setReviewForm({ rating: 5, title: '', comment: '' });
+
+      try {
+        const reviewEligibilities = await reviewApi.getMyEligibilities(token);
+        setEligibilities(Array.isArray(reviewEligibilities) ? reviewEligibilities : []);
+      } catch {
+        setEligibilities([]);
+      }
+    } catch (err) {
+      setReviewError(err.message);
+    } finally {
+      setReviewSaving(false);
+    }
+  }
 
   if (loading) {
     return <LoadingSpinner label="Loading order..." />;
@@ -75,6 +162,112 @@ export default function OrderDetailsPage() {
       <div className="table-wrap card">
         <table>
           <thead>
+
+      <div className="order-review-section card" id="order-reviews">
+        <div className="section-head">
+          <div>
+            <h2>Rate Your Delivered Items</h2>
+            <p className="meta">Leave a rating from My Orders without opening the product page.</p>
+          </div>
+        </div>
+
+        {reviewMessage && <p className="message success">{reviewMessage}</p>}
+
+        {order.status !== 'Delivered' ? (
+          <p className="message">Reviews unlock automatically after the order is delivered.</p>
+        ) : (
+          <div className="order-review-grid">
+            {order.items?.map((item) => {
+              const eligibility = getEligibility(item);
+              const isAlreadyReviewed = Boolean(eligibility?.hasReviewed);
+              const canReview = Boolean(eligibility && !eligibility.hasReviewed);
+              const isOpen = reviewOpenProductId === item.productId;
+
+              return (
+                <article className="order-review-card" key={`${item.productId}-${item.productName}`}>
+                  <div className="order-review-card-header">
+                    <div>
+                      <h3>{item.productName}</h3>
+                      <p className="meta">
+                        Qty {item.quantity} | Rs. {Number(item.totalPrice).toFixed(2)} total
+                      </p>
+                    </div>
+
+                    {isAlreadyReviewed ? (
+                      <span className="review-status-pill reviewed">Reviewed</span>
+                    ) : canReview ? (
+                      <span className="review-status-pill ready">Ready</span>
+                    ) : (
+                      <span className="review-status-pill muted">Syncing</span>
+                    )}
+                  </div>
+
+                  {canReview && isOpen ? (
+                    <form className="review-form order-review-form" onSubmit={(event) => handleReviewSubmit(event, item)}>
+                      <div className="review-form-grid">
+                        <label>
+                          Rating
+                          <select
+                            value={reviewForm.rating}
+                            onChange={(event) => setReviewForm((current) => ({ ...current, rating: Number(event.target.value) }))}
+                          >
+                            <option value="5">5 - Excellent</option>
+                            <option value="4">4 - Good</option>
+                            <option value="3">3 - Okay</option>
+                            <option value="2">2 - Poor</option>
+                            <option value="1">1 - Bad</option>
+                          </select>
+                        </label>
+                        <label>
+                          Title
+                          <input
+                            value={reviewForm.title}
+                            maxLength="120"
+                            onChange={(event) => setReviewForm((current) => ({ ...current, title: event.target.value }))}
+                            required
+                          />
+                        </label>
+                      </div>
+
+                      <label>
+                        Comment
+                        <textarea
+                          value={reviewForm.comment}
+                          maxLength="2000"
+                          rows="4"
+                          onChange={(event) => setReviewForm((current) => ({ ...current, comment: event.target.value }))}
+                          required
+                        />
+                      </label>
+
+                      {reviewError && <p className="message error">{reviewError}</p>}
+
+                      <div className="inline-actions">
+                        <button type="submit" className="btn btn-solid" disabled={reviewSaving}>
+                          {reviewSaving ? 'Submitting...' : 'Submit Review'}
+                        </button>
+                        <button type="button" className="btn btn-outline" onClick={closeReviewForm} disabled={reviewSaving}>
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  ) : canReview ? (
+                    <div className="inline-actions">
+                      <button type="button" className="btn btn-solid" onClick={() => openReviewForm(item)}>
+                        Write Review
+                      </button>
+                    </div>
+                  ) : isAlreadyReviewed ? (
+                    <p className="message">You have already reviewed this item.</p>
+                  ) : (
+                    <p className="message">This item will appear here once review eligibility syncs.</p>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </div>
             <tr>
               <th>Product</th>
               <th>Quantity</th>

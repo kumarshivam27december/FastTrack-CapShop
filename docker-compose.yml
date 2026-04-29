@@ -77,6 +77,7 @@ services:
       - paymentservice
       - notificationservice
       - assistantservice
+      - reviewservice
     networks:
       - capshop-network
     restart: unless-stopped
@@ -248,6 +249,33 @@ services:
       - Ollama__TimeoutSeconds=60
     depends_on:
       - catalogservice
+    networks:
+      - capshop-network
+    restart: unless-stopped
+
+  # Review Service
+  reviewservice:
+    build:
+      context: .
+      dockerfile: backend/Services/ReviewService/CapShop.ReviewService/Dockerfile
+    container_name: capshop-reviewservice
+    ports:
+      - "5020:5020"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5020
+      - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=CapShopReviewDb;User Id=sa;Password=CapShop@12345;TrustServerCertificate=True;Encrypt=True
+      - JwtSettings__Issuer=CapShop.AuthService
+      - JwtSettings__Audience=CapShop.Client
+      - JwtSettings__SecretKey=CapShop-Auth-Day1-Very-Long-Secret-Key-Change-In-Prod
+      - RabbitMq__Host=rabbitmq
+      - RabbitMq__Username=guest
+      - RabbitMq__Password=guest
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
     networks:
       - capshop-network
     restart: unless-stopped

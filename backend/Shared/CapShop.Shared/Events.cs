@@ -168,3 +168,23 @@ public interface OrderStatusChangedEvent
     string? Notes { get; }
     DateTime OccurredAtUtc { get; }
 }
+
+/// <summary>
+/// Published by OrderService when delivered/completed order items become eligible for reviews.
+/// </summary>
+public interface OrderReviewEligibilityCreatedEvent
+{
+    Guid CorrelationId { get; }
+    int OrderId { get; }
+    int UserId { get; }
+    string OrderNumber { get; }
+    DateTime DeliveredAtUtc { get; }
+    IEnumerable<OrderReviewEligibilityItemEvent> Items { get; }
+    DateTime OccurredAtUtc { get; }
+}
+
+public interface OrderReviewEligibilityItemEvent
+{
+    int ProductId { get; }
+    string ProductName { get; }
+}

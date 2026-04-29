@@ -118,6 +118,9 @@ export default function OrdersPage() {
                 <td>
                   <div className="inline-actions">
                     <Link to={`/orders/${order.id}`} className="btn btn-outline">View</Link>
+                    {order.status === 'Delivered' && (
+                      <Link to={`/orders/${order.id}#order-reviews`} className="btn btn-solid">Review</Link>
+                    )}
                     {order.status !== 'Delivered' && order.status !== 'Cancelled' && (
                       <Link to={`/orders/${order.id}/cancel`} className="btn btn-outline">Cancel</Link>
                     )}

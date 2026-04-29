@@ -747,7 +747,9 @@ namespace CapShop.OrderService.Infrastructure.Repositories
 
         public async Task<bool> UpdateOrderStatusAsync(int orderId, string newStatus, string? notes = null, int? adminUserId = null, string? trackingCheckpointCode = null)
         {
-            var order = await _db.Orders.FindAsync(orderId);
+            var order = await _db.Orders
+                .Include(o => o.Items)
+                .FirstOrDefaultAsync(o => o.Id == orderId);
             if (order is null) return false;
 
             if (!Enum.TryParse<OrderStatus>(newStatus, true, out var newStatusEnum))
@@ -775,6 +777,12 @@ namespace CapShop.OrderService.Infrastructure.Repositories
             });
 
             await _db.SaveChangesAsync();
+
+            if (newStatusEnum is OrderStatus.Delivered or OrderStatus.Completed)
+            {
+                await PublishReviewEligibilityAsync(order);
+            }
+
             return true;
         }
 
@@ -1091,6 +1099,24 @@ namespace CapShop.OrderService.Infrastructure.Repositories
         private static string NormalizeCode(string value)
         {
             return new string(value.Trim().ToLowerInvariant().Select(ch => char.IsLetterOrDigit(ch) ? ch : '-').ToArray());
+        }
+
+        private async Task PublishReviewEligibilityAsync(Order order)
+        {
+            await _publishEndpoint.Publish<OrderReviewEligibilityCreatedEvent>(new
+            {
+                CorrelationId = Guid.NewGuid(),
+                OrderId = order.Id,
+                UserId = order.UserId,
+                OrderNumber = order.OrderNumber,
+                DeliveredAtUtc = order.UpdatedAtUtc ?? DateTime.UtcNow,
+                Items = order.Items.Select(i => new
+                {
+                    i.ProductId,
+                    i.ProductName
+                }).ToList(),
+                OccurredAtUtc = DateTime.UtcNow
+            });
         }
 
         private static List<TrackingEventDto> BuildTrackingEvents(Order order, List<TrackingHub> route, int currentIndex, DateTime estimatedDeliveryUtc)

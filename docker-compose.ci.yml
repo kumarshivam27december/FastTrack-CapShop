@@ -25,3 +25,6 @@ services:
 
   assistantservice:
     image: ${DOCKERHUB_NAMESPACE}/capshop-assistantservice:${IMAGE_TAG}
+
+  reviewservice:
+    image: ${DOCKERHUB_NAMESPACE}/capshop-reviewservice:${IMAGE_TAG}
