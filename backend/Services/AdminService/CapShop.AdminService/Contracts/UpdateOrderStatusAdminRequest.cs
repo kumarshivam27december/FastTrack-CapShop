@@ -4,5 +4,6 @@
     {
         public string NewStatus { get; set; } = string.Empty;
         public string? Notes { get; set; }
+        public string? TrackingCheckpointCode { get; set; }
     }
 }

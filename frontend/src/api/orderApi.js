@@ -17,5 +17,6 @@ export const orderApi = {
   placeOrder: (token, orderId) => apiRequest('/orders/place', { method: 'POST', token, body: { orderId } }),
   cancelOrder: (token, id) => apiRequest(`/orders/${id}/cancel`, { method: 'PUT', token }),
   getMyOrders: (token) => apiRequest('/orders/my', { token }),
-  getOrderById: (token, id) => apiRequest(`/orders/${id}`, { token })
+  getOrderById: (token, id) => apiRequest(`/orders/${id}`, { token }),
+  getOrderTracking: (token, id) => apiRequest(`/orders/${id}/tracking`, { token })
 };

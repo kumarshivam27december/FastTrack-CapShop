@@ -16,8 +16,10 @@ import TwoFactorVerifyPage from './pages/TwoFactorVerifyPage';
 import TwoFactorAuthenticatorPage from './pages/TwoFactorAuthenticatorPage';
 import CartPage from './pages/CartPage';
 import CheckoutPage from './pages/CheckoutPage';
+import PaymentPage from './pages/PaymentPage';
 import OrdersPage from './pages/OrdersPage';
 import OrderDetailsPage from './pages/OrderDetailsPage';
+import OrderConfirmationPage from './pages/OrderConfirmationPage';
 import CancelOrderConfirmPage from './pages/CancelOrderConfirmPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminShell from './components/AdminShell';
@@ -74,6 +76,14 @@ function App() {
                   )}
                 />
                 <Route
+                  path="payment/:orderId"
+                  element={(
+                    <CustomerRoute>
+                      <PaymentPage />
+                    </CustomerRoute>
+                  )}
+                />
+                <Route
                   path="orders"
                   element={(
                     <CustomerRoute>
@@ -86,6 +96,14 @@ function App() {
                   element={(
                     <CustomerRoute>
                       <OrderDetailsPage />
+                    </CustomerRoute>
+                  )}
+                />
+                <Route
+                  path="orders/:orderId/confirmation"
+                  element={(
+                    <CustomerRoute>
+                      <OrderConfirmationPage />
                     </CustomerRoute>
                   )}
                 />

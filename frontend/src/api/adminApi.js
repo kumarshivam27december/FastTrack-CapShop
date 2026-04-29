@@ -3,6 +3,7 @@ import { apiRequest } from './client';
 export const adminApi = {
   getSummary: (token) => apiRequest('/admin/dashboard/summary', { token }),
   getOrders: (token) => apiRequest('/admin/orders', { token }),
+  getTrackingHubs: (token) => apiRequest('/orders/tracking/hubs', { token }),
   updateOrderStatus: (token, orderId, payload) =>
     apiRequest(`/admin/orders/${orderId}/status`, { method: 'PUT', token, body: payload }),
   getStatusSplit: (token) => apiRequest('/admin/reports/status-split', { token }),

@@ -634,6 +634,96 @@ namespace CapShop.OrderService.Infrastructure.Repositories
             return order is null ? null : MapOrderToDto(order);
         }
 
+        public async Task<OrderTrackingDto?> GetOrderTrackingAsync(int orderId, int userId)
+        {
+            var order = await _db.Orders
+                .AsNoTracking()
+                .FirstOrDefaultAsync(o => o.Id == orderId && o.UserId == userId);
+
+            if (order is null)
+            {
+                return null;
+            }
+
+            var address = order.AddressId.HasValue
+                ? await _db.Addresses.AsNoTracking().FirstOrDefaultAsync(a => a.Id == order.AddressId.Value)
+                : null;
+
+            var destination = ResolveDestination(address);
+            var trackingSelection = await GetLatestTrackingSelectionAsync(order.Id);
+            var originWarehouse = trackingSelection.Warehouse
+                ?? DeliveryHubs
+                    .Where(h => h.Kind == "warehouse")
+                    .OrderBy(h => DistanceKm(h.Latitude, h.Longitude, destination.Latitude, destination.Longitude))
+                    .First();
+            var nearestHub = DeliveryHubs
+                .Where(h => h.Kind == "regional-hub")
+                .OrderBy(h => DistanceKm(h.Latitude, h.Longitude, destination.Latitude, destination.Longitude))
+                .First();
+
+            var route = BuildRoute(originWarehouse, nearestHub, destination);
+            var adminCheckpoint = trackingSelection.Checkpoint;
+            if (adminCheckpoint is not null && adminCheckpoint.Kind != "warehouse" && route.All(h => h.Code != adminCheckpoint.Code))
+            {
+                route.Insert(1, adminCheckpoint);
+            }
+
+            var currentIndex = order.Status == OrderStatus.Delivered || order.Status == OrderStatus.Completed || order.Status == OrderStatus.Cancelled
+                ? GetCurrentRouteIndex(order.Status, route.Count)
+                : adminCheckpoint is null
+                    ? GetCurrentRouteIndex(order.Status, route.Count)
+                    : Math.Max(0, route.FindIndex(h => h.Code == adminCheckpoint.Code));
+            var currentPoint = route[currentIndex];
+            var now = DateTime.UtcNow;
+            var estimatedDeliveryUtc = EstimateDeliveryUtc(order, currentIndex, route.Count, now);
+
+            var routeDtos = route.Select((point, index) => new TrackingPointDto
+            {
+                Name = point.Name,
+                Kind = point.Kind,
+                Latitude = point.Latitude,
+                Longitude = point.Longitude,
+                IsCompleted = index < currentIndex || order.Status == OrderStatus.Delivered || order.Status == OrderStatus.Completed,
+                IsCurrent = index == currentIndex && order.Status != OrderStatus.Delivered && order.Status != OrderStatus.Completed
+            }).ToList();
+
+            return new OrderTrackingDto
+            {
+                OrderId = order.Id,
+                OrderNumber = order.OrderNumber,
+                Status = order.Status.ToString(),
+                TrackingStatus = adminCheckpoint is null || order.Status == OrderStatus.Delivered || order.Status == OrderStatus.Completed || order.Status == OrderStatus.Cancelled
+                    ? GetTrackingStatus(order.Status)
+                    : $"Package reached {currentPoint.Name}",
+                CurrentLocationName = currentPoint.Name,
+                NearestHubName = nearestHub.Name,
+                EstimatedDeliveryUtc = estimatedDeliveryUtc,
+                EstimatedMinutesRemaining = Math.Max(0, (int)Math.Ceiling((estimatedDeliveryUtc - now).TotalMinutes)),
+                CurrentLocation = routeDtos[currentIndex],
+                Destination = routeDtos[^1],
+                Route = routeDtos,
+                Events = BuildTrackingEvents(order, route, currentIndex, estimatedDeliveryUtc)
+            };
+        }
+
+        public Task<List<TrackingHubDto>> GetTrackingHubsAsync()
+        {
+            var hubs = DeliveryHubs
+                .OrderBy(h => h.Kind == "warehouse" ? 0 : 1)
+                .ThenBy(h => h.Name)
+                .Select(h => new TrackingHubDto
+                {
+                    Code = h.Code,
+                    Name = h.Name,
+                    Kind = h.Kind,
+                    Latitude = h.Latitude,
+                    Longitude = h.Longitude
+                })
+                .ToList();
+
+            return Task.FromResult(hubs);
+        }
+
         public async Task<List<OrderResponseDto>> GetCustomerOrdersAsync(int userId)
         {
             var orders = await _db.Orders
@@ -655,7 +745,7 @@ namespace CapShop.OrderService.Infrastructure.Repositories
             return orders.Select(MapOrderToDto).ToList();
         }
 
-        public async Task<bool> UpdateOrderStatusAsync(int orderId, string newStatus, string? notes = null, int? adminUserId = null)
+        public async Task<bool> UpdateOrderStatusAsync(int orderId, string newStatus, string? notes = null, int? adminUserId = null, string? trackingCheckpointCode = null)
         {
             var order = await _db.Orders.FindAsync(orderId);
             if (order is null) return false;
@@ -664,6 +754,10 @@ namespace CapShop.OrderService.Infrastructure.Repositories
                 return false;
 
             if (!IsValidTransition(order.Status, newStatusEnum))
+                return false;
+
+            var trackingCheckpoint = ResolveTrackingCheckpoint(trackingCheckpointCode);
+            if (!string.IsNullOrWhiteSpace(trackingCheckpointCode) && trackingCheckpoint is null)
                 return false;
 
             var oldStatus = order.Status;
@@ -676,7 +770,7 @@ namespace CapShop.OrderService.Infrastructure.Repositories
                 OrderId = order.Id,
                 FromStatus = oldStatus,
                 ToStatus = newStatusEnum,
-                Notes = notes,
+                Notes = BuildTrackingNotes(notes, trackingCheckpoint),
                 ChangedByUserId = adminUserId
             });
 
@@ -793,6 +887,292 @@ namespace CapShop.OrderService.Infrastructure.Repositories
         {
             return $"ORD-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString()[..6].ToUpper()}";
         }
+
+        private const string TrackingNotePrefix = "[TRACKING:";
+
+        private static readonly TrackingHub[] DeliveryHubs =
+        [
+            new("warehouse-gurugram", "CapShop Fulfillment Center - Gurugram", "warehouse", 28.4595m, 77.0266m),
+            new("warehouse-delhi", "CapShop Fulfillment Center - Delhi", "warehouse", 28.6139m, 77.2090m),
+            new("warehouse-mumbai", "CapShop Fulfillment Center - Mumbai", "warehouse", 19.0760m, 72.8777m),
+            new("warehouse-bengaluru", "CapShop Fulfillment Center - Bengaluru", "warehouse", 12.9716m, 77.5946m),
+            new("warehouse-kolkata", "CapShop Fulfillment Center - Kolkata", "warehouse", 22.5726m, 88.3639m),
+            new("warehouse-hyderabad", "CapShop Fulfillment Center - Hyderabad", "warehouse", 17.3850m, 78.4867m),
+            new("warehouse-bhubaneswar", "CapShop Fulfillment Center - Bhubaneswar", "warehouse", 20.2961m, 85.8245m),
+            new("hub-delhi", "North Sorting Hub - Delhi", "regional-hub", 28.6139m, 77.2090m),
+            new("hub-jaipur", "West Sorting Hub - Jaipur", "regional-hub", 26.9124m, 75.7873m),
+            new("hub-bhopal", "Central Sorting Hub - Bhopal", "regional-hub", 23.2599m, 77.4126m),
+            new("hub-bengaluru", "South Sorting Hub - Bengaluru", "regional-hub", 12.9716m, 77.5946m),
+            new("hub-kolkata", "East Sorting Hub - Kolkata", "regional-hub", 22.5726m, 88.3639m),
+            new("hub-mumbai", "West Coast Hub - Mumbai", "regional-hub", 19.0760m, 72.8777m),
+            new("hub-chennai", "South Coast Hub - Chennai", "regional-hub", 13.0827m, 80.2707m),
+            new("hub-hyderabad", "Deccan Hub - Hyderabad", "regional-hub", 17.3850m, 78.4867m),
+            new("hub-pune", "Maharashtra Hub - Pune", "regional-hub", 18.5204m, 73.8567m),
+            new("hub-ahmedabad", "Gujarat Hub - Ahmedabad", "regional-hub", 23.0225m, 72.5714m),
+            new("hub-lucknow", "UP Hub - Lucknow", "regional-hub", 26.8467m, 80.9462m),
+            new("hub-chandigarh", "Punjab-Haryana Hub - Chandigarh", "regional-hub", 30.7333m, 76.7794m),
+            new("hub-indore", "MP Hub - Indore", "regional-hub", 22.7196m, 75.8577m),
+            new("hub-patna", "Bihar Hub - Patna", "regional-hub", 25.5941m, 85.1376m),
+            new("hub-surat", "South Gujarat Hub - Surat", "regional-hub", 21.1702m, 72.8311m),
+            new("hub-kochi", "Kerala Hub - Kochi", "regional-hub", 9.9312m, 76.2673m),
+            new("hub-guwahati", "North East Hub - Guwahati", "regional-hub", 26.1445m, 91.7362m),
+            new("hub-bhubaneswar", "Odisha Hub - Bhubaneswar", "regional-hub", 20.2961m, 85.8245m)
+        ];
+
+        private static readonly Dictionary<string, (decimal Latitude, decimal Longitude)> CityCoordinates = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Delhi"] = (28.6139m, 77.2090m),
+            ["New Delhi"] = (28.6139m, 77.2090m),
+            ["Gurugram"] = (28.4595m, 77.0266m),
+            ["Gurgaon"] = (28.4595m, 77.0266m),
+            ["Noida"] = (28.5355m, 77.3910m),
+            ["Jaipur"] = (26.9124m, 75.7873m),
+            ["Bhopal"] = (23.2599m, 77.4126m),
+            ["Mumbai"] = (19.0760m, 72.8777m),
+            ["Pune"] = (18.5204m, 73.8567m),
+            ["Bengaluru"] = (12.9716m, 77.5946m),
+            ["Bangalore"] = (12.9716m, 77.5946m),
+            ["Chennai"] = (13.0827m, 80.2707m),
+            ["Hyderabad"] = (17.3850m, 78.4867m),
+            ["Kolkata"] = (22.5726m, 88.3639m),
+            ["Ahmedabad"] = (23.0225m, 72.5714m),
+            ["Lucknow"] = (26.8467m, 80.9462m),
+            ["Chandigarh"] = (30.7333m, 76.7794m),
+            ["Indore"] = (22.7196m, 75.8577m),
+            ["Patna"] = (25.5941m, 85.1376m),
+            ["Surat"] = (21.1702m, 72.8311m)
+        };
+
+        private static TrackingHub ResolveDestination(Address? address)
+        {
+            if (address is not null && CityCoordinates.TryGetValue(address.City.Trim(), out var point))
+            {
+                return new TrackingHub($"destination-{NormalizeCode(address.City)}", $"{address.City} delivery address", "destination", point.Latitude, point.Longitude);
+            }
+
+            return new TrackingHub("destination-customer-area", "Customer delivery area", "destination", 28.6139m, 77.2090m);
+        }
+
+        private static List<TrackingHub> BuildRoute(TrackingHub originWarehouse, TrackingHub nearestHub, TrackingHub destination)
+        {
+            var route = new List<TrackingHub> { originWarehouse };
+
+            if (nearestHub.Code != originWarehouse.Code)
+            {
+                route.Add(nearestHub);
+            }
+
+            route.Add(new TrackingHub($"local-{destination.Code}", $"Local delivery hub near {destination.Name.Replace(" delivery address", string.Empty)}", "local-hub", destination.Latitude, destination.Longitude));
+            route.Add(destination);
+
+            return route;
+        }
+
+        private static int GetCurrentRouteIndex(OrderStatus status, int routeCount)
+        {
+            return status switch
+            {
+                OrderStatus.Draft or OrderStatus.CheckoutStarted or OrderStatus.PaymentPending or OrderStatus.Paid => 0,
+                OrderStatus.Packed => Math.Min(1, routeCount - 1),
+                OrderStatus.Shipped => Math.Min(2, routeCount - 1),
+                OrderStatus.Delivered or OrderStatus.Completed => routeCount - 1,
+                OrderStatus.Cancelled => 0,
+                _ => 0
+            };
+        }
+
+        private static DateTime EstimateDeliveryUtc(Order order, int currentIndex, int routeCount, DateTime now)
+        {
+            if (order.Status == OrderStatus.Delivered || order.Status == OrderStatus.Completed)
+            {
+                return order.UpdatedAtUtc ?? now;
+            }
+
+            if (order.Status == OrderStatus.Cancelled)
+            {
+                return now;
+            }
+
+            var remainingLegs = Math.Max(1, routeCount - currentIndex - 1);
+            var hoursPerLeg = order.Status == OrderStatus.Shipped ? 8 : 14;
+            return now.AddHours(remainingLegs * hoursPerLeg + 3);
+        }
+
+        private static string GetTrackingStatus(OrderStatus status)
+        {
+            return status switch
+            {
+                OrderStatus.Draft or OrderStatus.CheckoutStarted or OrderStatus.PaymentPending => "Waiting for payment confirmation",
+                OrderStatus.Paid => "Order confirmed at warehouse",
+                OrderStatus.Packed => "Packed and ready for dispatch",
+                OrderStatus.Shipped => "In transit to your nearest delivery hub",
+                OrderStatus.Delivered or OrderStatus.Completed => "Delivered",
+                OrderStatus.Cancelled => "Order cancelled",
+                _ => "Tracking in progress"
+            };
+        }
+
+        private async Task<TrackingSelection> GetLatestTrackingSelectionAsync(int orderId)
+        {
+            var histories = await _db.OrderStatusHistories
+                .AsNoTracking()
+                .Where(h => h.OrderId == orderId && h.Notes != null && h.Notes.Contains(TrackingNotePrefix))
+                .OrderByDescending(h => h.ChangedAtUtc)
+                .ToListAsync();
+
+            TrackingHub? latestCheckpoint = null;
+            TrackingHub? latestWarehouse = null;
+
+            foreach (var history in histories)
+            {
+                var checkpoint = ResolveTrackingCheckpoint(ExtractTrackingCode(history.Notes));
+                if (checkpoint is null)
+                {
+                    continue;
+                }
+
+                latestCheckpoint ??= checkpoint;
+
+                if (checkpoint.Kind == "warehouse")
+                {
+                    latestWarehouse ??= checkpoint;
+                }
+
+                if (latestCheckpoint is not null && latestWarehouse is not null)
+                {
+                    break;
+                }
+            }
+
+            return new TrackingSelection(latestCheckpoint, latestWarehouse);
+        }
+
+        private static TrackingHub? ResolveTrackingCheckpoint(string? code)
+        {
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                return null;
+            }
+
+            return DeliveryHubs.FirstOrDefault(h => string.Equals(h.Code, code.Trim(), StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static string? ExtractTrackingCode(string? notes)
+        {
+            if (string.IsNullOrWhiteSpace(notes))
+            {
+                return null;
+            }
+
+            var start = notes.IndexOf(TrackingNotePrefix, StringComparison.OrdinalIgnoreCase);
+            if (start < 0)
+            {
+                return null;
+            }
+
+            start += TrackingNotePrefix.Length;
+            var end = notes.IndexOf(']', start);
+            return end > start ? notes[start..end] : null;
+        }
+
+        private static string? BuildTrackingNotes(string? notes, TrackingHub? checkpoint)
+        {
+            if (checkpoint is null)
+            {
+                return notes;
+            }
+
+            var trackingNote = $"{TrackingNotePrefix}{checkpoint.Code}] Package reached {checkpoint.Name}.";
+            return string.IsNullOrWhiteSpace(notes)
+                ? trackingNote
+                : $"{notes.Trim()} {trackingNote}";
+        }
+
+        private static string NormalizeCode(string value)
+        {
+            return new string(value.Trim().ToLowerInvariant().Select(ch => char.IsLetterOrDigit(ch) ? ch : '-').ToArray());
+        }
+
+        private static List<TrackingEventDto> BuildTrackingEvents(Order order, List<TrackingHub> route, int currentIndex, DateTime estimatedDeliveryUtc)
+        {
+            var events = new List<TrackingEventDto>();
+
+            for (var i = 0; i < route.Count; i++)
+            {
+                var completed = i < currentIndex || order.Status == OrderStatus.Delivered || order.Status == OrderStatus.Completed;
+                var current = i == currentIndex && !completed && order.Status != OrderStatus.Cancelled;
+                var occurredAt = i == 0
+                    ? order.CreatedAtUtc
+                    : order.CreatedAtUtc.AddHours(i * 14);
+
+                events.Add(new TrackingEventDto
+                {
+                    Title = GetTrackingEventTitle(route[i], order.Status, completed, current),
+                    Description = current
+                        ? "Your package is currently here."
+                        : completed
+                            ? "This checkpoint is complete."
+                            : "Expected next checkpoint.",
+                    Status = current ? "Current" : completed ? "Completed" : "Pending",
+                    LocationName = route[i].Name,
+                    OccurredAtUtc = completed || current ? occurredAt : estimatedDeliveryUtc.AddHours(-(route.Count - i) * 6),
+                    IsCompleted = completed,
+                    IsCurrent = current
+                });
+            }
+
+            if (order.Status == OrderStatus.Cancelled)
+            {
+                events.Add(new TrackingEventDto
+                {
+                    Title = "Order cancelled",
+                    Description = "Delivery tracking stopped because this order was cancelled.",
+                    Status = "Cancelled",
+                    LocationName = route[currentIndex].Name,
+                    OccurredAtUtc = order.UpdatedAtUtc ?? DateTime.UtcNow,
+                    IsCompleted = true
+                });
+            }
+
+            return events;
+        }
+
+        private static string GetTrackingEventTitle(TrackingHub point, OrderStatus orderStatus, bool completed, bool current)
+        {
+            if (orderStatus == OrderStatus.Cancelled)
+            {
+                return "Tracking stopped";
+            }
+
+            return point.Kind switch
+            {
+                "warehouse" => completed || current ? "Order confirmed" : "Awaiting warehouse scan",
+                "regional-hub" => completed || current ? "Reached sorting hub" : "Expected at sorting hub",
+                "local-hub" => completed || current ? "At nearest delivery hub" : "Expected at nearest delivery hub",
+                "destination" => orderStatus == OrderStatus.Delivered || orderStatus == OrderStatus.Completed
+                    ? "Delivered to customer"
+                    : "Delivery address",
+                _ => current ? "Current checkpoint" : "Delivery checkpoint"
+            };
+        }
+
+        private static double DistanceKm(decimal lat1, decimal lon1, decimal lat2, decimal lon2)
+        {
+            const double radiusKm = 6371;
+            var dLat = ToRadians((double)(lat2 - lat1));
+            var dLon = ToRadians((double)(lon2 - lon1));
+            var a =
+                Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                Math.Cos(ToRadians((double)lat1)) * Math.Cos(ToRadians((double)lat2)) *
+                Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+            var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+            return radiusKm * c;
+        }
+
+        private static double ToRadians(double degrees) => degrees * Math.PI / 180;
+
+        private sealed record TrackingHub(string Code, string Name, string Kind, decimal Latitude, decimal Longitude);
+        private sealed record TrackingSelection(TrackingHub? Checkpoint, TrackingHub? Warehouse);
 
         private sealed class CatalogProductDto
         {

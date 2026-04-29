@@ -29,10 +29,12 @@ namespace CapShop.OrderService.Application.Services
         public Task<PaymentResponseDto> SimulatePaymentAsync(int userId, string? userEmail, PaymentSimulateRequestDto request) => _repo.SimulatePaymentAsync(userId, userEmail, request);
         public Task<CheckoutResponseDto> PlaceOrderAsync(int userId, string? userEmail, int orderId) => _repo.PlaceOrderAsync(userId, userEmail, orderId);
         public Task<OrderResponseDto?> GetOrderByIdAsync(int orderId, int userId) => _repo.GetOrderByIdAsync(orderId, userId);
+        public Task<OrderTrackingDto?> GetOrderTrackingAsync(int orderId, int userId) => _repo.GetOrderTrackingAsync(orderId, userId);
+        public Task<List<TrackingHubDto>> GetTrackingHubsAsync() => _repo.GetTrackingHubsAsync();
         public Task<List<OrderResponseDto>> GetCustomerOrdersAsync(int userId) => _repo.GetCustomerOrdersAsync(userId);
         public Task<List<OrderResponseDto>> GetAllOrdersAsync() => _repo.GetAllOrdersAsync();
-        public Task<bool> UpdateOrderStatusAsync(int orderId, string newStatus, string? notes = null, int? adminUserId = null)
-        => _repo.UpdateOrderStatusAsync(orderId, newStatus, notes, adminUserId);
+        public Task<bool> UpdateOrderStatusAsync(int orderId, string newStatus, string? notes = null, int? adminUserId = null, string? trackingCheckpointCode = null)
+        => _repo.UpdateOrderStatusAsync(orderId, newStatus, notes, adminUserId, trackingCheckpointCode);
         public Task<bool> CancelOrderAsync(int orderId, int userId) => _repo.CancelOrderAsync(orderId, userId);
     }
 }

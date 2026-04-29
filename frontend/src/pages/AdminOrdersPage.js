@@ -9,7 +9,9 @@ const STATUS_OPTIONS = ['Paid', 'Packed', 'Shipped', 'Delivered', 'Cancelled'];
 export default function AdminOrdersPage() {
   const { token } = useAuth();
   const [orders, setOrders] = useState([]);
+  const [trackingHubs, setTrackingHubs] = useState([]);
   const [orderStatusById, setOrderStatusById] = useState({});
+  const [trackingHubById, setTrackingHubById] = useState({});
   const [orderNotesById, setOrderNotesById] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -18,8 +20,12 @@ export default function AdminOrdersPage() {
     setLoading(true);
     setError('');
     try {
-      const data = await adminApi.getOrders(token);
+      const [data, hubs] = await Promise.all([
+        adminApi.getOrders(token),
+        adminApi.getTrackingHubs(token)
+      ]);
       setOrders(Array.isArray(data) ? data : []);
+      setTrackingHubs(Array.isArray(hubs) ? hubs : []);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -33,15 +39,19 @@ export default function AdminOrdersPage() {
 
   async function handleOrderStatusUpdate(orderId) {
     const newStatus = orderStatusById[orderId];
-    if (!newStatus) {
-      alert('Please choose a status');
+    const effectiveStatus = newStatus || orders.find((order) => order.id === orderId)?.status;
+    const trackingCheckpointCode = trackingHubById[orderId] || '';
+
+    if (!effectiveStatus && !trackingCheckpointCode) {
+      alert('Please choose a status or tracking hub');
       return;
     }
 
     try {
       await adminApi.updateOrderStatus(token, orderId, {
-        newStatus,
-        notes: orderNotesById[orderId] || ''
+        newStatus: effectiveStatus,
+        notes: orderNotesById[orderId] || '',
+        trackingCheckpointCode
       });
       await loadOrders();
     } catch (err) {
@@ -92,8 +102,22 @@ export default function AdminOrdersPage() {
                         ))}
                       </select>
 
+                      <select
+                        value={trackingHubById[order.id] || ''}
+                        onChange={(e) =>
+                          setTrackingHubById((prev) => ({ ...prev, [order.id]: e.target.value }))
+                        }
+                      >
+                        <option value="">Select current hub</option>
+                        {trackingHubs.map((hub) => (
+                          <option key={hub.code} value={hub.code}>
+                            {hub.name}
+                          </option>
+                        ))}
+                      </select>
+
                       <input
-                        placeholder="Notes"
+                        placeholder="Notes for customer"
                         value={orderNotesById[order.id] || ''}
                         onChange={(e) =>
                           setOrderNotesById((prev) => ({ ...prev, [order.id]: e.target.value }))

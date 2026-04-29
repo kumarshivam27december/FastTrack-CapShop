@@ -46,6 +46,14 @@ namespace CapShop.OrderService.Controllers
         [AllowAnonymous]
         public IActionResult Health() => Ok(new { service = "OrderService", status = "Healthy" });
 
+        [HttpGet("tracking/hubs")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> GetTrackingHubs()
+        {
+            var hubs = await _orderService.GetTrackingHubsAsync();
+            return Ok(hubs);
+        }
+
         [HttpGet("cart")]
         [Authorize(Policy = "CustomerOnly")]
         public async Task<IActionResult> GetCart()
@@ -167,6 +175,17 @@ namespace CapShop.OrderService.Controllers
             return Ok(order);
         }
 
+        [HttpGet("{id}/tracking")]
+        [Authorize(Policy = "CustomerOnly")]
+        public async Task<IActionResult> GetOrderTracking(int id)
+        {
+            var userId = GetUserIdStrict();
+            var tracking = await _orderService.GetOrderTrackingAsync(id, userId);
+            if (tracking is null) return NotFound();
+
+            return Ok(tracking);
+        }
+
         [HttpGet("admin/all")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetAllOrders()
@@ -180,7 +199,7 @@ namespace CapShop.OrderService.Controllers
         public async Task<IActionResult> UpdateOrderStatus(int id, [FromBody] UpdateOrderStatusRequestDto request)
         {
             var adminUserId = GetUserIdStrict();
-            var result = await _orderService.UpdateOrderStatusAsync(id, request.NewStatus, request.Notes, adminUserId);
+            var result = await _orderService.UpdateOrderStatusAsync(id, request.NewStatus, request.Notes, adminUserId, request.TrackingCheckpointCode);
             if (!result) return BadRequest("Invalid status transition or order not found");
 
             return Ok(new { message = "Order status updated" });

@@ -23,9 +23,11 @@ namespace CapShop.OrderService.Infrastructure.Repositories
         Task<CheckoutResponseDto> PlaceOrderAsync(int userId, string? userEmail, int orderId);
 
         Task<OrderResponseDto?> GetOrderByIdAsync(int orderId, int userId);
+        Task<OrderTrackingDto?> GetOrderTrackingAsync(int orderId, int userId);
+        Task<List<TrackingHubDto>> GetTrackingHubsAsync();
         Task<List<OrderResponseDto>> GetCustomerOrdersAsync(int userId);
         Task<List<OrderResponseDto>> GetAllOrdersAsync();
-        Task<bool> UpdateOrderStatusAsync(int orderId, string newStatus, string? notes = null, int? adminUserId = null);
+        Task<bool> UpdateOrderStatusAsync(int orderId, string newStatus, string? notes = null, int? adminUserId = null, string? trackingCheckpointCode = null);
         Task<bool> CancelOrderAsync(int orderId, int userId);
     }
 }
