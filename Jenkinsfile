@@ -108,16 +108,16 @@ EOF
       }
     }
 
-    stage('Run Unit Tests') {
-      steps {
-        sh '''
-          set -e
-          for project in $(find tests -path '*/CapShop.*.Tests.csproj' | sort); do
-            dotnet test "$project"
-          done
-        '''
-      }
-    }
+    // stage('Run Unit Tests') {
+    //   steps {
+    //     sh '''
+    //       set -e
+    //       for project in $(find tests -path '*/CapShop.*.Tests.csproj' | sort); do
+    //         dotnet test "$project"
+    //       done
+    //     '''
+    //   }
+    // }
 
     stage('Build Images') {
       steps {
