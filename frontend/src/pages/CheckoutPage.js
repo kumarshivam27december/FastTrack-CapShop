@@ -76,7 +76,7 @@ export default function CheckoutPage() {
                 id="fullName"
                 value={address.fullName}
                 onChange={(e) => setAddress((prev) => ({ ...prev, fullName: e.target.value }))}
-                placeholder="John Doe"
+                placeholder="Enter your full name"
                 required
               />
             </div>
@@ -109,7 +109,7 @@ export default function CheckoutPage() {
                 id="city"
                 value={address.city}
                 onChange={(e) => setAddress((prev) => ({ ...prev, city: e.target.value }))}
-                placeholder="New Delhi"
+                placeholder="Patna"
                 required
               />
             </div>
@@ -120,7 +120,7 @@ export default function CheckoutPage() {
                 id="state"
                 value={address.state}
                 onChange={(e) => setAddress((prev) => ({ ...prev, state: e.target.value }))}
-                placeholder="Delhi"
+                placeholder="Bihar"
                 required
               />
             </div>

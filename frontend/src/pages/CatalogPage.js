@@ -101,7 +101,7 @@ export default function CatalogPage() {
             setPage(1);
             setMinPrice(e.target.value);
           }}
-          placeholder="Min price"
+          placeholder="Min price in ₹"
         />
 
         <input
@@ -112,7 +112,7 @@ export default function CatalogPage() {
             setPage(1);
             setMaxPrice(e.target.value);
           }}
-          placeholder="Max price"
+          placeholder="Max price in ₹"
         />
 
         <select

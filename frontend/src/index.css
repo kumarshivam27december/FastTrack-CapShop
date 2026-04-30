@@ -1488,6 +1488,10 @@ th {
   margin: 0;
 }
 
+.assistant-speak-btn {
+  margin-top: 8px;
+}
+
 .assistant-message-user {
   margin-left: auto;
   width: min(86%, 720px);

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import './LandingPage.css';
 
 /* ─── Small reusable components ─── */
@@ -30,7 +31,8 @@ function StepCard({ num, icon, title, desc, delay }) {
 
 /* ─── Main ─── */
 export default function LandingPage() {
-  const { user, isAdmin } = useAuth();
+  const { user } = useAuth();
+  const { isDarkMode } = useTheme();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -54,20 +56,39 @@ export default function LandingPage() {
       <section className={`lp-hero${visible ? ' lp-hero--visible' : ''}`}>
         <div className="lp-hero-content">
 
-          <div className="lp-badge">
+          {/* <div className="lp-hero-badge fade-in">
             <span className="lp-badge-dot" />
-            Microservices · API Gateway · React
-          </div>
+            Ultimate E-Commerce Hub
+          </div> */}
 
           <h1 className="lp-hero-title">
-            Your complete<br />
-            <span className="lp-grad">shopping platform.</span>
+            One Point
+            <br />
+            <span className="lp-grad">Purchase Solution.</span>
           </h1>
 
           <p className="lp-hero-sub">
-            CapShop brings together a smart product catalog, AI-powered search,
-            secure checkout with Razorpay, and a full admin panel — all in one place.
+            We are selling all consumer goods in the e-commerce web hub.
+            Experience a seamless, secure, and lightning-fast shopping journey
+            for everything you need.
           </p>
+
+          <div className="lp-hero-stats-mini">
+            <div className="lp-mini-stat">
+              <strong>100%</strong>
+              <span>Secure</span>
+            </div>
+            <div className="lp-mini-divider" />
+            <div className="lp-mini-stat">
+              <strong>24/7</strong>
+              <span>Support</span>
+            </div>
+            <div className="lp-mini-divider" />
+            <div className="lp-mini-stat">
+              <strong>AI</strong>
+              <span>Assistant</span>
+            </div>
+          </div>
 
           <div className="lp-hero-btns">
             <Link to="/catalog" className="lp-btn lp-btn-primary">
@@ -79,9 +100,7 @@ export default function LandingPage() {
             </Link>
 
             {user ? (
-              isAdmin
-                ? <Link to="/admin" className="lp-btn lp-btn-glass">Admin Panel →</Link>
-                : <Link to="/orders" className="lp-btn lp-btn-glass">My Orders →</Link>
+              <Link to="/orders" className="lp-btn lp-btn-glass">My Orders →</Link>
             ) : (
               <>
                 <Link to="/signup" className="lp-btn lp-btn-glass">Create Account</Link>
@@ -91,199 +110,194 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Hero right — feature tags */}
-        <div className="lp-hero-tags" aria-hidden="true">
-          <div className="lp-hero-tags-inner">
-            {[
-              { icon: '🔍', label: 'Smart Catalog Search' },
-              { icon: '🤖', label: 'AI Voice Assistant' },
-              { icon: '🛒', label: 'Cart & Checkout' },
-              { icon: '💳', label: 'Razorpay Payments' },
-              { icon: '📦', label: 'Order Tracking' },
-              { icon: '🔐', label: 'Two-Factor Auth' },
-              { icon: '📊', label: 'Admin Reports' },
-              { icon: '📁', label: 'CSV Export' },
-            ].map((tag, i) => (
-              <div
-                key={i}
-                className="lp-tag-pill"
-                style={{ animationDelay: `${i * 80}ms` }}
-              >
-                <span>{tag.icon}</span>
-                {tag.label}
-              </div>
-            ))}
+        {/* Hero right — premium visual */}
+        <div className="lp-hero-visual">
+          <div className="lp-hero-img-wrap">
+            <img 
+              src={isDarkMode ? "/assets/hero.png" : "/assets/hero-light.png"} 
+              alt="E-commerce Hub Visual" 
+              className="lp-hero-img"
+            />
+            <div className="lp-hero-glow" />
           </div>
+          
+          {/* <div className="lp-floating-card lp-fcard-1">
+            <span className="lp-fcard-icon">🚀</span>
+            <div className="lp-fcard-txt">
+              <strong>99.9%</strong>
+              <span>Uptime Hub</span>
+            </div>
+          </div> */}
         </div>
       </section>
 
-      {/* ════════ FEATURES ════════ */}
-      <section className="lp-section">
-        <div className="lp-section-eyebrow">What's inside</div>
-        <h2 className="lp-section-title">
-          Every feature you need,<br />
-          <span className="lp-grad">built and working.</span>
-        </h2>
+      {/* ════════ MARQUEE ════════ */}
+      <div className="lp-marquee-wrap">
+        <div className="lp-marquee-content">
+          {[
+            'NEW ARRIVALS', 'SECURE PAYMENTS', 'SHIPPING','Order Tracking ','AI Assitance', 'TOP BRANDS', 'BEST DEALS',
+            'NEW ARRIVALS', 'SECURE PAYMENTS', 'SHIPPING', 'Order Tracking','AI Assitance','TOP BRANDS', 'BEST DEALS'
+          ].map((text, i) => (
+            <span key={i} className="lp-marquee-item">{text}</span>
+          ))}
+        </div>
+      </div>
 
-        <div className="lp-features-grid">
+      {/* ════════ WHY SHOP WITH US ════════ */}
+      <section className="lp-section">
+        <div className="lp-section-eyebrow">Why shop with us</div>
+        <h2 className="lp-section-title">Everything you need for a<br /><span className="lp-grad">perfect shopping experience.</span></h2>
+
+        <div className="lp-features-grid lp-why-grid">
           <FeatureCard
-            icon="🔍"
-            title="Smart Product Catalog"
-            desc="Search by name, filter by category, set price range (min–max), and sort by price or name — with paginated results."
+            icon="🛍️"
+            title="Curated Collections"
+            desc="Explore our hand-picked selection of premium products. Filter easily to find exactly what matches your style and needs."
             color="linear-gradient(135deg,#6366f1,#818cf8)"
             delay="0ms"
           />
           <FeatureCard
             icon="🤖"
-            title="AI Catalog Assistant"
-            desc="Ask for products in plain English — by budget, stock, or type. Also supports live voice input via Speech Recognition."
+            title="AI Shopping Assistant"
+            desc="Speak naturally to our voice assistant to get personalized product recommendations instantly."
             color="linear-gradient(135deg,#0ea5e9,#38bdf8)"
             delay="70ms"
           />
           <FeatureCard
-            icon="💳"
-            title="Razorpay Checkout"
-            desc="Full shipping address form, UPI or Card payment via Razorpay, signature verification, and automatic order confirmation."
+            icon="🔒"
+            title="Secure Checkout"
+            desc="Experience lightning-fast and secure payments. We support major cards, debit cards, and UPI."
             color="linear-gradient(135deg,#10b981,#34d399)"
             delay="140ms"
           />
           <FeatureCard
             icon="📦"
-            title="Order Management"
-            desc="View your full order history with status badges, cancel pending orders, and download all orders as a CSV file."
+            title="Real-Time Tracking"
+            desc="Stay updated on your purchases from the moment they ship to when they arrive at your door."
             color="linear-gradient(135deg,#f59e0b,#fbbf24)"
             delay="210ms"
           />
           <FeatureCard
-            icon="🔐"
-            title="Two-Factor Authentication"
-            desc="Choose between SMS OTP, Email OTP, or Microsoft Authenticator app with QR code setup — all configurable from your profile."
+            icon="🛡️"
+            title="Bank-Grade Security"
+            desc="Your data is protected with industry-leading encryption and optional two-factor authentication."
             color="linear-gradient(135deg,#8b5cf6,#a78bfa)"
             delay="280ms"
           />
           <FeatureCard
-            icon="🧑‍💼"
-            title="Google OAuth Login"
-            desc="Sign in with Google in one click. Google users can also set an email/password later for dual-method access."
+            icon="⚡"
+            title="Seamless Access"
+            desc="Sign up in seconds with Google and dive straight into shopping without another password."
             color="linear-gradient(135deg,#ec4899,#f472b6)"
             delay="350ms"
           />
           <FeatureCard
-            icon="📊"
-            title="Admin Reports & CSV"
-            desc="Admin gets order status split, date-range sales report with per-day revenue, and one-click CSV export."
+            icon="🎁"
+            title="Exclusive Rewards"
+            desc="Create an account to save favorites, manage addresses, and unlock member-only discounts."
             color="linear-gradient(135deg,#f97316,#fb923c)"
             delay="420ms"
           />
           <FeatureCard
-            icon="🧑‍⚙️"
-            title="Full Admin Panel"
-            desc="Manage products, categories, and all orders. Overview shows total orders, today's orders, total revenue, and product count."
+            icon="💬"
+            title="Priority Support"
+            desc="Our customer care team is ready to help with order inquiries, returns, or product questions."
             color="linear-gradient(135deg,#06b6d4,#22d3ee)"
             delay="490ms"
           />
-          <FeatureCard
-            icon="👤"
-            title="User Profile"
-            desc="Update your name, phone, and avatar photo. Change or set your password, and manage your 2FA settings — all in one screen."
-            color="linear-gradient(135deg,#d946ef,#e879f9)"
-            delay="560ms"
-          />
         </div>
       </section>
 
-      {/* ════════ HOW IT WORKS ════════ */}
+      {/* ════════ THE PROCESS ════════ */}
       <section className="lp-section">
-        <div className="lp-section-eyebrow">How it works</div>
-        <h2 className="lp-section-title">
-          From signup to order —<br />
-          <span className="lp-grad">three steps.</span>
-        </h2>
+        <div className="lp-section-eyebrow">The process</div>
+        <h2 className="lp-section-title">From screen to doorstep in<br /><span className="lp-grad">three simple steps.</span></h2>
 
         <div className="lp-steps-grid">
           <StepCard
-            num="01" icon="🔑" delay="0ms"
-            title="Create your account"
-            desc="Sign up with email or continue with Google. Enable Two-Factor Authentication (SMS, Email, or Authenticator App) for extra security."
+            num="01" icon="🔍" delay="0ms"
+            title="Discover & Choose"
+            desc="Browse our catalog or use smart search to find products you love. Add favorites to your cart."
           />
           <StepCard
-            num="02" icon="🛍️" delay="120ms"
-            title="Browse & add to cart"
-            desc="Search the catalog, filter by category and price, or use the AI Assistant with voice input to find what you need. Add items to cart."
+            num="02" icon="💳" delay="120ms"
+            title="Secure Checkout"
+            desc="Enter shipping details and complete payment through our encrypted checkout process."
           />
           <StepCard
-            num="03" icon="✅" delay="240ms"
-            title="Checkout & track"
-            desc="Enter your shipping address, pay securely via Razorpay (UPI or Card), and track every order from your orders page."
+            num="03" icon="🚚" delay="240ms"
+            title="Fast Delivery"
+            desc="Track your order in real-time as it moves from our warehouse to your doorstep."
           />
         </div>
       </section>
 
-      {/* ════════ ADMIN HIGHLIGHT ════════ */}
+      {/* ════════ CONSUMER CATEGORIES ════════ */}
       <section className="lp-section">
-        <div className="lp-admin-card">
-          <div className="lp-admin-blob" />
-          <div className="lp-admin-inner">
-            <div className="lp-admin-left">
-              <div className="lp-section-eyebrow lp-eyebrow-white">For Admins</div>
-              <h2 className="lp-admin-title">
-                A complete back-office<br />
-                <span className="lp-grad-gold">built right in.</span>
-              </h2>
-              <p className="lp-admin-sub">
-                The admin panel gives you everything to run the store: manage products and categories,
-                view and update all orders, see today's metrics, and pull date-range sales reports
-                with CSV export — no third-party tools needed.
-              </p>
-              {isAdmin && (
-                <Link to="/admin" className="lp-btn lp-btn-white">
-                  Open Admin Panel →
-                </Link>
-              )}
+        <div className="lp-section-eyebrow">Explore our hub</div>
+        <h2 className="lp-section-title">Everything you need, in<br /><span className="lp-grad">one digital destination.</span></h2>
+        
+        <div className="lp-cat-grid">
+          {[
+            { name: 'Electronics', icon: '💻', count: '12k+ items' },
+            { name: 'Fashion', icon: '👕', count: '8k+ items' },
+            { name: 'Home & Living', icon: '🏠', count: '5k+ items' },
+            { name: 'Beauty', icon: '💄', count: '3k+ items' },
+            { name: 'Sports', icon: '🏀', count: '2k+ items' },
+            { name: 'Groceries', icon: '🍎', count: '10k+ items' },
+          ].map((cat, i) => (
+            <div key={i} className="lp-cat-card" style={{ animationDelay: `${i * 60}ms` }}>
+              <div className="lp-cat-icon">{cat.icon}</div>
+              <div className="lp-cat-info">
+                <h4>{cat.name}</h4>
+                <span>{cat.count}</span>
+              </div>
             </div>
-            <div className="lp-admin-metrics">
-              {[
-                { label: 'Total Orders', icon: '📋' },
-                { label: "Today's Orders", icon: '🗓️' },
-                { label: 'Total Revenue', icon: '💰' },
-                { label: 'Total Products', icon: '📦' },
-              ].map((m, i) => (
-                <div key={i} className="lp-admin-metric-card">
-                  <span className="lp-admin-metric-icon">{m.icon}</span>
-                  <span className="lp-admin-metric-label">{m.label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          ))}
         </div>
       </section>
 
-      {/* ════════ CTA ════════ */}
       <section className="lp-section lp-cta-section">
         <div className="lp-cta-card">
           <div className="lp-cta-glow" />
           <h2 className="lp-cta-title">
-            Ready to start shopping?
+            Ready to upgrade your lifestyle?
           </h2>
           <p className="lp-cta-sub">
-            Browse the catalog right now — no account required.
-            Sign up to unlock cart, checkout, and order tracking.
+            Join thousands of happy customers. Browse latest arrivals and find
+            exactly what you've been looking for.
           </p>
           <div className="lp-cta-btns">
             <Link to="/catalog" className="lp-btn lp-btn-white">
-              🛍️ Browse Catalog
+              🛍️ Shop Now
             </Link>
             {!user && (
               <Link to="/signup" className="lp-btn lp-btn-glass-dark">
                 Create Free Account
               </Link>
             )}
-            {user && isAdmin && (
-              <Link to="/admin" className="lp-btn lp-btn-glass-dark">
-                Open Admin Panel
-              </Link>
-            )}
           </div>
+        </div>
+      </section>
+
+      {/* ════════ TRAITS / QUICK FACTS ════════ */}
+      <section className="lp-section lp-traits" aria-hidden="true">
+        <div className="lp-traits-grid">
+          {[
+            { icon: '🚚', label: 'Fast Delivery' },
+            { icon: '🤖', label: 'AI Shopping Assistant' },
+            { icon: '🛡️', label: 'Secure Payments' },
+            { icon: '⭐', label: 'Top Rated Products' },
+            { icon: '📦', label: 'Easy Returns' },
+            { icon: '🔒', label: 'Privacy Protected' },
+            { icon: '🎁', label: 'Exclusive Deals' },
+            { icon: '🎧', label: '24/7 Support' },
+          ].map((t, i) => (
+            <div key={i} className="lp-trait">
+              <div className="lp-trait-icon">{t.icon}</div>
+              <div className="lp-trait-label">{t.label}</div>
+            </div>
+          ))}
         </div>
       </section>
 

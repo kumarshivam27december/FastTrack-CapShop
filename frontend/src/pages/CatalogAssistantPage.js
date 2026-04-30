@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { assistantApi } from '../api/assistantApi';
 import { useAuth } from '../context/AuthContext';
@@ -15,6 +15,7 @@ export default function CatalogAssistantPage() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [speakingMessageId, setSpeakingMessageId] = useState(null);
   const recognitionRef = useRef(null);
   const [messages, setMessages] = useState([
     {
@@ -27,6 +28,56 @@ export default function CatalogAssistantPage() {
   ]);
 
   const canSend = useMemo(() => input.trim().length > 0 && !loading, [input, loading]);
+  const canSpeakOutput = typeof window !== 'undefined' && 'speechSynthesis' in window;
+
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
+  function getFullSpeechText(message) {
+    let fullText = message.text || '';
+    
+    if (Array.isArray(message.products) && message.products.length > 0) {
+      fullText += '. Found ' + message.products.length + ' products. ';
+      message.products.forEach((p, idx) => {
+        fullText += `Product ${idx + 1}: ${p.name}, priced at ${p.price} rupees. `;
+      });
+    }
+    
+    if (Array.isArray(message.orders) && message.orders.length > 0) {
+      fullText += '. Found ' + message.orders.length + ' orders. ';
+      message.orders.forEach((o, idx) => {
+        fullText += `Order ${idx + 1}: Number ${o.orderNumber}, status ${o.status}. `;
+      });
+    }
+    
+    return fullText;
+  }
+
+  function toggleSpeak(messageId, text) {
+    if (!canSpeakOutput || !text) {
+      return;
+    }
+
+    if (speakingMessageId === messageId) {
+      window.speechSynthesis.cancel();
+      setSpeakingMessageId(null);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    utterance.onend = () => setSpeakingMessageId((current) => (current === messageId ? null : current));
+    utterance.onerror = () => setSpeakingMessageId((current) => (current === messageId ? null : current));
+
+    setSpeakingMessageId(messageId);
+    window.speechSynthesis.speak(utterance);
+  }
 
   function initializeRecognition() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -156,7 +207,7 @@ export default function CatalogAssistantPage() {
         <div className="card assistant-chat-shell">
           <div className="assistant-chat-header">
             <h3>Chat</h3>
-            <p className="hint">Answers come from your real catalog data.</p>
+            {/* <p className="hint">Answers come from your real catalog data.</p> */}
           </div>
 
           <div className="assistant-chat-thread" role="log" aria-live="polite">
@@ -166,6 +217,15 @@ export default function CatalogAssistantPage() {
                 className={`assistant-chat-bubble assistant-chat-bubble-${message.role}`}
               >
                 <p>{message.text}</p>
+                {message.role === 'assistant' && canSpeakOutput && (
+                  <button
+                    type="button"
+                    className="btn btn-outline assistant-speak-btn"
+                    onClick={() => toggleSpeak(message.id, getFullSpeechText(message))}
+                  >
+                    {speakingMessageId === message.id ? 'Stop' : 'Listen'}
+                  </button>
+                )}
 
                 {Array.isArray(message.orders) && message.orders.length > 0 && (
                   <div className="assistant-result-grid">

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { assistantApi } from '../api/assistantApi';
 import { useAuth } from '../context/AuthContext';
@@ -6,7 +6,9 @@ import { useAuth } from '../context/AuthContext';
 export default function InventoryAssistantWidget() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [speakingMessageId, setSpeakingMessageId] = useState(null);
   const { token } = useAuth();
+  const canSpeakOutput = typeof window !== 'undefined' && 'speechSynthesis' in window;
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -14,6 +16,35 @@ export default function InventoryAssistantWidget() {
       text: 'Ask me for products in natural language, for example: coding book under 2000 in stock.'
     }
   ]);
+
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
+  function toggleSpeak(messageId, text) {
+    if (!canSpeakOutput || !text) {
+      return;
+    }
+
+    if (speakingMessageId === messageId) {
+      window.speechSynthesis.cancel();
+      setSpeakingMessageId(null);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    utterance.onend = () => setSpeakingMessageId((current) => (current === messageId ? null : current));
+    utterance.onerror = () => setSpeakingMessageId((current) => (current === messageId ? null : current));
+
+    setSpeakingMessageId(messageId);
+    window.speechSynthesis.speak(utterance);
+  }
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -69,6 +100,15 @@ export default function InventoryAssistantWidget() {
             className={`assistant-message assistant-message-${message.role}`}
           >
             <p>{message.text}</p>
+            {message.role === 'assistant' && canSpeakOutput && (
+              <button
+                type="button"
+                className="btn btn-outline assistant-speak-btn"
+                onClick={() => toggleSpeak(message.id, message.text)}
+              >
+                {speakingMessageId === message.id ? 'Stop' : 'Speak'}
+              </button>
+            )}
             {Array.isArray(message.orders) && message.orders.length > 0 && (
               <ul className="assistant-products-list">
                 {message.orders.map((order) => (
