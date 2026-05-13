@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { adminApi } from '../api/adminApi';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { useToast } from '../components/ToastProvider';
 
 const INITIAL_CATEGORY_FORM = {
   id: null,
@@ -16,6 +17,7 @@ export default function AdminCategoriesPage() {
   const [categoryForm, setCategoryForm] = useState(INITIAL_CATEGORY_FORM);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { error: showError } = useToast();
 
   const loadCategories = useCallback(async () => {
     setLoading(true);
@@ -66,7 +68,7 @@ export default function AdminCategoriesPage() {
       clearCategoryForm();
       await loadCategories();
     } catch (err) {
-      alert(err.message);
+      showError(err.message);
     }
   }
 
@@ -79,7 +81,7 @@ export default function AdminCategoriesPage() {
       await adminApi.deleteCategory(token, id);
       await loadCategories();
     } catch (err) {
-      alert(err.message);
+      showError(err.message);
     }
   }
 

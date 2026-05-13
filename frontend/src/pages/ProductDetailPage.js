@@ -5,11 +5,13 @@ import { reviewApi } from '../api/reviewApi';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { useToast } from '../components/ToastProvider';
 
 export default function ProductDetailPage() {
   const { id } = useParams();
   const { isAuthenticated, isAdmin, token } = useAuth();
   const { addToCart } = useCart();
+  const { success, error: showError } = useToast();
   const [product, setProduct] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [reviewSummary, setReviewSummary] = useState(null);
@@ -60,9 +62,9 @@ export default function ProductDetailPage() {
   async function handleAdd() {
     try {
       await addToCart(product.id, quantity);
-      alert('Added to cart');
+      success('Added to cart');
     } catch (err) {
-      alert(err.message);
+      showError(err.message);
     }
   }
 

@@ -4,6 +4,7 @@ import { catalogApi } from '../api/catalogApi';
 import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/StatusBadge';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { useToast } from '../components/ToastProvider';
 
 const STATUS_OPTIONS = ['Paid', 'Packed', 'Shipped', 'Delivered', 'Cancelled'];
 
@@ -36,6 +37,7 @@ export default function AdminDashboardPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { error: showError } = useToast();
 
   const totalSales = useMemo(
     () => salesRows.reduce((sum, row) => sum + Number(row.revenue || 0), 0),
@@ -87,7 +89,7 @@ export default function AdminDashboardPage() {
   async function handleOrderStatusUpdate(orderId) {
     const newStatus = orderStatusById[orderId];
     if (!newStatus) {
-      alert('Please choose a status');
+      showError('Please choose a status');
       return;
     }
 
@@ -98,7 +100,7 @@ export default function AdminDashboardPage() {
       });
       await Promise.all([loadOrders(), loadSummary(), loadStatusSplit()]);
     } catch (err) {
-      alert(err.message);
+      showError(err.message);
     }
   }
 
@@ -106,7 +108,7 @@ export default function AdminDashboardPage() {
     try {
       await loadSales();
     } catch (err) {
-      alert(err.message);
+      showError(err.message);
     }
   }
 
@@ -120,7 +122,7 @@ export default function AdminDashboardPage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      alert(err.message);
+      showError(err.message);
     }
   }
 
@@ -163,7 +165,7 @@ export default function AdminDashboardPage() {
       clearProductForm();
       await loadProducts();
     } catch (err) {
-      alert(err.message);
+      showError(err.message);
     }
   }
 
@@ -176,7 +178,7 @@ export default function AdminDashboardPage() {
       await catalogApi.deleteProduct(token, id);
       await loadProducts();
     } catch (err) {
-      alert(err.message);
+      showError(err.message);
     }
   }
 
@@ -188,7 +190,7 @@ export default function AdminDashboardPage() {
       await catalogApi.updateStock(token, id, Number(next));
       await loadProducts();
     } catch (err) {
-      alert(err.message);
+      showError(err.message);
     }
   }
 

@@ -66,6 +66,7 @@ builder.Services.AddScoped<ICategoryAppService, CategoryAppService>();
 builder.Services.AddMassTransit(x =>
 {
     x.SetEndpointNameFormatter(new KebabCaseEndpointNameFormatter("catalog", false));
+        
     x.AddConsumer<ReserveStockCommandConsumer>();
 
     x.AddConfigureEndpointsCallback((context, _, cfg) =>

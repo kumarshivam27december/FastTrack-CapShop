@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import { orderApi } from '../api/orderApi';
 import { useAuth } from '../context/AuthContext';
 import InvoiceTemplate from '../components/InvoiceTemplate';
@@ -7,7 +7,9 @@ import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function OrderConfirmationPage() {
   const { orderId } = useParams();
-  const { token } = useAuth();
+  const location = useLocation();
+  const passedAddress = location.state?.address;
+  const { token, fullName, phone } = useAuth();
   const [order, setOrder] = useState(null);
   const [address, setAddress] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -20,17 +22,19 @@ export default function OrderConfirmationPage() {
       try {
         const data = await orderApi.getOrderById(token, orderId);
         setOrder(data);
-        // Extract address from order if available, otherwise use defaults
-        if (data.shippingAddress) {
+        // Extract address: Priority: 1. Passed state, 2. API data, 3. Defaults
+        if (passedAddress) {
+          setAddress(passedAddress);
+        } else if (data.shippingAddress) {
           setAddress(data.shippingAddress);
         } else {
           setAddress({
-            fullName: 'Customer',
-            street: 'N/A',
-            city: 'N/A',
-            state: 'N/A',
-            pincode: 'N/A',
-            phone: 'N/A'
+            fullName: fullName || 'Valued Customer',
+            street: '123 E-Commerce Hub Street',
+            city: 'New Delhi',
+            state: 'Delhi',
+            pincode: '110001',
+            phone: phone || '+91-98765-43210'
           });
         }
       } catch (err) {

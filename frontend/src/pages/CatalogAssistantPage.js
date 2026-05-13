@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { assistantApi } from '../api/assistantApi';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../components/ToastProvider';
 
 const QUICK_PROMPTS = [
   'coding book under 2000 in stock',
@@ -13,6 +14,7 @@ const QUICK_PROMPTS = [
 export default function CatalogAssistantPage() {
   const { token } = useAuth();
   const [input, setInput] = useState('');
+  const { error: showError } = useToast();
   const [loading, setLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [speakingMessageId, setSpeakingMessageId] = useState(null);
@@ -38,26 +40,6 @@ export default function CatalogAssistantPage() {
     };
   }, []);
 
-  function getFullSpeechText(message) {
-    let fullText = message.text || '';
-    
-    if (Array.isArray(message.products) && message.products.length > 0) {
-      fullText += '. Found ' + message.products.length + ' products. ';
-      message.products.forEach((p, idx) => {
-        fullText += `Product ${idx + 1}: ${p.name}, priced at ${p.price} rupees. `;
-      });
-    }
-    
-    if (Array.isArray(message.orders) && message.orders.length > 0) {
-      fullText += '. Found ' + message.orders.length + ' orders. ';
-      message.orders.forEach((o, idx) => {
-        fullText += `Order ${idx + 1}: Number ${o.orderNumber}, status ${o.status}. `;
-      });
-    }
-    
-    return fullText;
-  }
-
   function toggleSpeak(messageId, text) {
     if (!canSpeakOutput || !text) {
       return;
@@ -82,7 +64,7 @@ export default function CatalogAssistantPage() {
   function initializeRecognition() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert('Speech Recognition not supported in your browser. Please use Chrome, Edge, or Firefox.');
+      showError('Speech Recognition not supported in your browser. Please use Chrome, Edge, or Firefox.');
       return;
     }
 
@@ -106,7 +88,7 @@ export default function CatalogAssistantPage() {
 
     recognition.onerror = (event) => {
       console.error('Speech recognition error:', event.error);
-      alert(`Error: ${event.error}`);
+      showError(`Error: ${event.error}`);
     };
 
     recognition.onend = () => {
@@ -207,7 +189,7 @@ export default function CatalogAssistantPage() {
         <div className="card assistant-chat-shell">
           <div className="assistant-chat-header">
             <h3>Chat</h3>
-            {/* <p className="hint">Answers come from your real catalog data.</p> */}
+            <p className="hint">Answers come from your real catalog data.</p>
           </div>
 
           <div className="assistant-chat-thread" role="log" aria-live="polite">
@@ -221,9 +203,9 @@ export default function CatalogAssistantPage() {
                   <button
                     type="button"
                     className="btn btn-outline assistant-speak-btn"
-                    onClick={() => toggleSpeak(message.id, getFullSpeechText(message))}
+                    onClick={() => toggleSpeak(message.id, message.text)}
                   >
-                    {speakingMessageId === message.id ? 'Stop' : 'Listen'}
+                    {speakingMessageId === message.id ? 'Stop' : 'Speak'}
                   </button>
                 )}
 

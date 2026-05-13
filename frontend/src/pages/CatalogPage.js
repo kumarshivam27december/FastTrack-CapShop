@@ -5,10 +5,12 @@ import { adminApi } from '../api/adminApi';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { useToast } from '../components/ToastProvider';
 
 export default function CatalogPage() {
   const { isAuthenticated, isAdmin } = useAuth();
   const { addToCart } = useCart();
+  const { success, error: showError } = useToast();
   const [query, setQuery] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [categories, setCategories] = useState([]);
@@ -58,9 +60,9 @@ export default function CatalogPage() {
   async function handleAdd(productId) {
     try {
       await addToCart(productId, 1);
-      alert('Added to cart');
+      success('Added to cart');
     } catch (err) {
-      alert(err.message);
+      showError(err.message);
     }
   }
 

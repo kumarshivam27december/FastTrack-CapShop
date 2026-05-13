@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { adminApi } from '../api/adminApi';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { useToast } from '../components/ToastProvider';
 
 export default function AdminReportsPage() {
   const { token } = useAuth();
@@ -11,6 +12,7 @@ export default function AdminReportsPage() {
   const [salesTo, setSalesTo] = useState(new Date().toISOString().slice(0, 10));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { error: showError } = useToast();
 
   const totalSales = useMemo(
     () => salesRows.reduce((sum, row) => sum + Number(row.revenue || 0), 0),
@@ -53,7 +55,7 @@ export default function AdminReportsPage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      alert(err.message);
+      showError(err.message);
     }
   }
 

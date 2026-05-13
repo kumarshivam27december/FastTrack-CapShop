@@ -102,7 +102,7 @@ export default function InvoiceTemplate({ order, address }) {
         {/* Footer */}
         <div className="invoice-footer">
           <p>Thank you for your purchase! Track your order at any time on your account.</p>
-          <p className="footer-contact">For support: support@capshop.com | Phone: +91-XXXX-XXXX-XX</p>
+          <p className="footer-contact">For support: fakemailforsmtp@gmail.com | Phone: +91-99887-76655</p>
         </div>
       </div>
 

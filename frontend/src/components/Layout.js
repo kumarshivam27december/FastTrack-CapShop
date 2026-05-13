@@ -38,12 +38,23 @@ export default function Layout() {
           </Link>
 
           <nav className="topnav">
-            <NavItem to="/">Home</NavItem>
-            <NavItem to="/catalog">Catalog</NavItem>
-            {isAuthenticated && <NavItem to="/assistant">Assistant</NavItem>}
-            {isAuthenticated && <NavItem to="/orders">My Orders</NavItem>}
-            {isAuthenticated && <NavItem to="/cart">Cart ({cart.itemCount || 0})</NavItem>}
-            {isAdmin && <NavItem to="/admin">Admin</NavItem>}
+            {/* If the current user is an admin show only Home, Assistant and Admin */}
+            {isAdmin ? (
+              <>
+                <NavItem to="/">Home</NavItem>
+                <NavItem to="/assistant">Assistant</NavItem>
+                <NavItem to="/admin">Admin</NavItem>
+              </>
+            ) : (
+              <>
+                <NavItem to="/">Home</NavItem>
+                <NavItem to="/catalog">Catalog</NavItem>
+                {isAuthenticated && <NavItem to="/assistant">Assistant</NavItem>}
+                {isAuthenticated && <NavItem to="/orders">My Orders</NavItem>}
+                {isAuthenticated && <NavItem to="/cart">Cart ({cart.itemCount || 0})</NavItem>}
+                {isAdmin && <NavItem to="/admin">Admin</NavItem>}
+              </>
+            )}
           </nav>
 
           <div className="auth-zone">

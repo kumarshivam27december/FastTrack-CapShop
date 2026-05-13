@@ -1,15 +1,17 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { useToast } from '../components/ToastProvider';
 
 export default function CartPage() {
   const navigate = useNavigate();
   const { cart, loading, updateCartItem, removeCartItem } = useCart();
+  const { error: showError } = useToast();
 
   async function changeQuantity(itemId, nextQuantity) {
     try {
       await updateCartItem(itemId, nextQuantity);
     } catch (err) {
-      alert(err.message);
+      showError(err.message);
     }
   }
 
@@ -17,7 +19,7 @@ export default function CartPage() {
     try {
       await removeCartItem(itemId);
     } catch (err) {
-      alert(err.message);
+      showError(err.message);
     }
   }
 

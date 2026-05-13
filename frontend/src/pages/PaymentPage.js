@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { orderApi } from '../api/orderApi';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
@@ -24,6 +24,8 @@ async function loadRazorpayScript() {
 
 export default function PaymentPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const passedAddress = location.state?.address;
   const { orderId } = useParams();
   const { token } = useAuth();
   const { refreshCart } = useCart();
@@ -194,7 +196,7 @@ export default function PaymentPage() {
 
   // Redirect to confirmation page when order is placed
   if (orderInfo) {
-    navigate(`/orders/${orderInfo.orderId}/confirmation`);
+    navigate(`/orders/${orderInfo.orderId}/confirmation`, { state: { address: passedAddress } });
     return null;
   }
 

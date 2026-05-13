@@ -3,6 +3,7 @@ import { adminApi } from '../api/adminApi';
 import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/StatusBadge';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { useToast } from '../components/ToastProvider';
 
 const STATUS_OPTIONS = ['Paid', 'Packed', 'Shipped', 'Delivered', 'Cancelled'];
 
@@ -15,6 +16,7 @@ export default function AdminOrdersPage() {
   const [orderNotesById, setOrderNotesById] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { error: showError } = useToast();
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
@@ -43,7 +45,7 @@ export default function AdminOrdersPage() {
     const trackingCheckpointCode = trackingHubById[orderId] || '';
 
     if (!effectiveStatus && !trackingCheckpointCode) {
-      alert('Please choose a status or tracking hub');
+      showError('Please choose a status or tracking hub');
       return;
     }
 
@@ -55,7 +57,7 @@ export default function AdminOrdersPage() {
       });
       await loadOrders();
     } catch (err) {
-      alert(err.message);
+      showError(err.message);
     }
   }
 

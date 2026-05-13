@@ -1,3 +1,5 @@
+using MMLib.SwaggerForOcelot.DependencyInjection;
+using MMLib.SwaggerForOcelot.Middleware;
 using Ocelot.DependencyInjection;
 using Ocelot.Middleware;
 
@@ -19,6 +21,11 @@ builder.Services.AddCors(options =>
         });
 });
 
+if (builder.Environment.IsDevelopment())
+{
+        builder.Services.AddSwaggerForOcelot(builder.Configuration);
+}
+
 builder.Services.AddOcelot(builder.Configuration);
 
 var app = builder.Build();
@@ -28,6 +35,14 @@ app.UseCors("FrontendPolicy");
 if (!app.Environment.IsDevelopment())
 {
         app.UseHttpsRedirection();
+}
+
+if (app.Environment.IsDevelopment())
+{
+        app.UseSwaggerForOcelotUI(options =>
+        {
+                options.PathToSwaggerGenerator = "/swagger/docs";
+        });
 }
 
 await app.UseOcelot();

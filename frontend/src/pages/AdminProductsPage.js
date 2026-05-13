@@ -3,6 +3,7 @@ import { catalogApi } from '../api/catalogApi';
 import { adminApi } from '../api/adminApi';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { useToast } from '../components/ToastProvider';
 
 const INITIAL_PRODUCT_FORM = {
   id: null,
@@ -24,6 +25,7 @@ export default function AdminProductsPage() {
   const [error, setError] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState(null);
+  const { error: showError, success } = useToast();
 
   const loadProducts = useCallback(async () => {
     setLoading(true);
@@ -87,7 +89,7 @@ export default function AdminProductsPage() {
       clearProductForm();
       await loadProducts();
     } catch (err) {
-      alert(err.message);
+      showError(err.message);
     }
   }
 
@@ -95,7 +97,7 @@ export default function AdminProductsPage() {
     event.preventDefault();
     const fileInput = document.getElementById('catalog-upload-file');
     if (!fileInput || !fileInput.files || !fileInput.files.length) {
-      alert('Please select a file to upload.');
+      showError('Please select a file to upload.');
       return;
     }
 
@@ -107,7 +109,7 @@ export default function AdminProductsPage() {
       setUploadResult(result);
       await loadProducts();
     } catch (err) {
-      alert(err.message || 'Upload failed');
+      showError(err.message || 'Upload failed');
     } finally {
       setUploading(false);
     }
@@ -122,7 +124,7 @@ export default function AdminProductsPage() {
       await catalogApi.deleteProduct(token, id);
       await loadProducts();
     } catch (err) {
-      alert(err.message);
+      showError(err.message);
     }
   }
 
@@ -134,7 +136,7 @@ export default function AdminProductsPage() {
       await catalogApi.updateStock(token, id, Number(next));
       await loadProducts();
     } catch (err) {
-      alert(err.message);
+      showError(err.message);
     }
   }
 
